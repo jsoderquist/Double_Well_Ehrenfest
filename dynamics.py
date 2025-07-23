@@ -1,10 +1,10 @@
 #!/software/anaconda3/2020.11/bin/python
-#SBATCH -p debug
+#SBATCH -p polariton
 #SBATCH -x bhd0005,bhc0024,bhd0020
 #SBATCH --output=qjob.out
 #SBATCH --error=qjob.err
 #SBATCH --mem-per-cpu=10GB
-#SBATCH -t 1:00:00
+#SBATCH -t 15:00:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 
@@ -16,76 +16,88 @@ import parameters as par
 import TrajClass as tc
 import model
 # =================================
-# =========================
-# Parallelization
-# =========================
-# RUN PARALLEL TRAJECTORIES
-# THE NUMBER OF TRAJECTORIES PER JOB (j) IS DETERMINED BASED ON THE NUMBER OF CPUS (par.Cpus) AND TOTAL TRAJECTORIES (par.NTraj)
-# j = NTraj / Cpus
-parallel = par.parallel
 
-if (parallel == True):
-    sys.path.append(os.popen("pwd").read().split("/tmpdir")[0]) # INCLUDE PARENT DIRECTORY WHICH HAS METHOD AND MODEL FILES
-    JOBID = str(os.environ["SLURM_ARRAY_JOB_ID"])               # GET ID OF THIS JOB
-    TASKID = str(os.environ["SLURM_ARRAY_TASK_ID"])             # GET ID OF THIS TASK WITHIN THE ARRAY 
+ωcs = np.sort(np.array([500,1000,1100,1150,1190,1240,1300,1500,2000,800,900,1050,1125,1160,1170,1180,1400,1600]))*par.cmtoau # wavenumber to au
+for ωc in ωcs:
 
-    nrank = int(TASKID)                                         # JOD ID FOR A JOB 
-    size  = par.Cpus                                            # TOTAL NUMBER OF PROCESSOR AVAILABLE
-else:
-    nrank = 0
-    size  = 1
+    # =========================
+    # Parallelization
+    # =========================
+    # RUN PARALLEL TRAJECTORIES
+    # THE NUMBER OF TRAJECTORIES PER JOB (j) IS DETERMINED BASED ON THE NUMBER OF CPUS (par.Cpus) AND TOTAL TRAJECTORIES (par.NTraj)
+    # j = NTraj / Cpus
+    parallel = par.parallel
 
-# =================================
-# COMPILATION 
-# =================================
-# WITH JIT, THE CODE MUST BE COMPILE FIRST. RUN THE CODE FOR ONLY TWO TIME STEPS FIRST
-# com_ti = tm.time()
-# nDW_dummy = par.nDW
-# ndof_dummy = par.ndof
-# nsteps_dummy = 2
-# data_dummy = tc.trajData(nDW_dummy, ndof_dummy, nsteps_dummy, nsteps_dummy)
-# data_dummy.ρt = par.ρ0
+    if (parallel == True):
+        sys.path.append(os.popen("pwd").read().split("/tmpdir")[0]) # INCLUDE PARENT DIRECTORY WHICH HAS METHOD AND MODEL FILES
+        JOBID = str(os.environ["SLURM_ARRAY_JOB_ID"])               # GET ID OF THIS JOB
+        TASKID = str(os.environ["SLURM_ARRAY_TASK_ID"])             # GET ID OF THIS TASK WITHIN THE ARRAY 
 
-# # MODEL FUNCTIONS =================
-# model.initR(data_dummy)
-# model.H_BC(data_dummy)
+        nrank = int(TASKID)                                         # JOD ID FOR A JOB 
+        size  = par.Cpus                                            # TOTAL NUMBER OF PROCESSOR AVAILABLE
+    else:
+        nrank = 0
+        size  = 1
 
-# # METHOD FUNCTIONS ================
-# method.Force1(data_dummy)
-# method.RK4(data_dummy)
-# method.VelVer(data_dummy)
-# method.run_traj(data_dummy)
+    # =================================
+    # COMPILATION 
+    # =================================
+    # WITH JIT, THE CODE MUST BE COMPILE FIRST. RUN THE CODE FOR ONLY TWO TIME STEPS FIRST
+    # com_ti = tm.time()
+    # nDW_dummy = par.nDW
+    # ndof_dummy = par.ndof
+    # nsteps_dummy = 2
+    # data_dummy = tc.trajData(nDW_dummy, ndof_dummy, nsteps_dummy, nsteps_dummy)
+    # data_dummy.ρt = par.ρ0
 
-# com_tf = tm.time()
-# print(f'Compilation time --> {np.round(com_tf - com_ti,2)} s or {np.round((com_tf - com_ti)/60,2)} min')
+    # # MODEL FUNCTIONS =================
+    # model.initR(data_dummy)
+    # model.H_BC(data_dummy)
+
+    # # METHOD FUNCTIONS ================
+    # method.Force1(data_dummy)
+    # method.RK4(data_dummy)
+    # method.VelVer(data_dummy)
+    # method.run_traj(data_dummy)
+
+    # com_tf = tm.time()
+    # print(f'Compilation time --> {np.round(com_tf - com_ti,2)} s or {np.round((com_tf - com_ti)/60,2)} min')
 
 
-# =================================
-# SIMULATION
-# =================================
-# DIVIDE THE NUMBER OF TRAJECTORIES PER JOB BASE ON THE NUMBER OF PROCESSORS AND TOTAL TRAJECTORIES
-tot_Tasks = par.NTraj
-NTasks = tot_Tasks//size
-NRem = tot_Tasks - (NTasks*size)
-TaskArray = [i for i in range(nrank * NTasks , (nrank+1) * NTasks)]
-for i in range(NRem):
-    if i == nrank: 
-        TaskArray.append((NTasks*size)+i)
-TaskArray = np.array(TaskArray)                                  # CONTAINS THE NUMBER OF TRAJECTORIES ASSIGNED TO EACH JOB
-# =================================
+    # =================================
+    # SIMULATION
+    # =================================
+    # DIVIDE THE NUMBER OF TRAJECTORIES PER JOB BASE ON THE NUMBER OF PROCESSORS AND TOTAL TRAJECTORIES
+    tot_Tasks = par.NTraj
+    NTasks = tot_Tasks//size
+    NRem = tot_Tasks - (NTasks*size)
+    TaskArray = [i for i in range(nrank * NTasks , (nrank+1) * NTasks)]
+    for i in range(NRem):
+        if i == nrank: 
+            TaskArray.append((NTasks*size)+i)
+    TaskArray = np.array(TaskArray)                                  # CONTAINS THE NUMBER OF TRAJECTORIES ASSIGNED TO EACH JOB
+    # =================================
 
-ρw = np.zeros((par.nData, par.nDW))                              # DENSITY MATRIX AVERAGED OVER THE NUMBER OF TRAJECTORIES ASSIGNED TO THIS JOB
-trajData = tc.trajData(par.nDW, par.ndof, par.NSteps, par.nData) # INITIATE THE TIME DEPENDENT DATA
+    ρw = np.zeros((par.nData, par.nDW))                              # DENSITY MATRIX AVERAGED OVER THE NUMBER OF TRAJECTORIES ASSIGNED TO THIS JOB
+    trajData = tc.trajData(par.nDW, par.ndof, par.NSteps, par.nData) # INITIATE THE TIME DEPENDENT DATA
 
-sim_ti = tm.time()
-for i in range(len(TaskArray)):
-    method.run_traj(trajData)
-    ρw += trajData.ρw
-sim_tf = tm.time()
-print(f'Simulation time --> {np.round(sim_tf - sim_ti,2)} s or {np.round((sim_tf - sim_ti)/60,2)} min')
-print(' ================================================================================================= ')
+    sim_ti = tm.time()
+    trajData.ωj = par.calc_ωj(ωc) # calculate these here so that we can automate the system
+    trajData.cj = par.calc_cj(ωc)
+    for i in range(len(TaskArray)):
+        method.run_traj(trajData)
+        ρw += trajData.ρw
+    sim_tf = tm.time()
+    print(f'Simulation time --> {np.round(sim_tf - sim_ti,2)} s or {np.round((sim_tf - sim_ti)/60,2)} min')
+    print(' ================================================================================================= ')
 
-try:
-    np.savetxt(f'../data/rho_{nrank}.txt', ρw/len(TaskArray))   # RUN IN PARALLEL
-except:
-    np.savetxt(f'./data/rho_{nrank}.txt', ρw/len(TaskArray))    # RUN IN SERIES
+    if par.nbath == 1:
+        try:
+            np.savetxt(f'../data/rho_{nrank}.txt', ρw/len(TaskArray))   # RUN IN PARALLEL
+        except:
+            np.savetxt(f'./data/rho_{nrank}.txt', ρw/len(TaskArray))    # RUN IN SERIES
+    else:
+        try:
+            np.savetxt(f'../data/rho_{nrank}_{ωc/par.cmtoau}.txt', ρw/len(TaskArray))   # RUN IN PARALLEL
+        except:
+            np.savetxt(f'./data/rho_{nrank}_{ωc/par.cmtoau}.txt', ρw/len(TaskArray))    # RUN IN SERIES
