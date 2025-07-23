@@ -19,6 +19,8 @@ spec = [
     ('H_bc',          complex128[:,:]), # ELECTRONIC HAMILTONIAN | DEPENDENT OF THE POSITION OF THE BATH OSCILLATOR
     ('ρw',            float64[:,:]), # PLACE HOLDER FOR THE DENSITY MATRIX
     ('test',          complex128[:,:]), # PLACE HOLDER FOR THE DENSITY MATRIX
+    ('cj',            complex128[:]), # place holder for the coupling coefficients
+    ('ωj',                 float64[:]), # place holder for the discretized frequencies
 ]
 
 @jitclass(spec)
@@ -37,3 +39,5 @@ class trajData(object):
         self.H_bc   = np.zeros((self.nt, self.nt), dtype = np.complex128)
         self.ρw     = np.zeros((nData,self.nt))
         self.test   = np.zeros((nData,2) , dtype = np.complex128)
+        self.cj     = np.zeros(self.ndof, dtype = np.complex128)
+        self.ωj     = np.zeros(self.ndof, dtype = np.float64)
