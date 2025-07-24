@@ -1,10 +1,9 @@
 #!/bin/bash
-#SBATCH -p preempt
-#SBATCH -x bhd0005,bhc0024,bhd0020
+#SBATCH -p polariton
 #SBATCH --output=qbath.out
 #SBATCH --error=qbath.err
 #SBATCH --mem-per-cpu=4GB
-#SBATCH -t 1:00:00
+#SBATCH -t 15:00:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 
