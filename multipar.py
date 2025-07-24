@@ -1,9 +1,8 @@
 #!/software/anaconda3/2020.11/bin/python
-#SBATCH -p debug
-#SBATCH -x bhd0005,bhc0024,bhd0020
+#SBATCH -p polariton
 #SBATCH -o output_multipar.log
 #SBATCH --mem-per-cpu=4GB
-#SBATCH -t 1:00:00
+#SBATCH -t 15:00:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 
@@ -15,11 +14,11 @@ from pathlib import Path
 # import parameters as par
 
 try:
-    os.rmdir("/scratch/smontill/Simpkins/MFE/parallel/tmpdir")
+    os.rmdir("/scratch/jsoderqu/Simpkins/MFE/parallel/tmpdir")
 except:
     print("No folder") 
 
-NARRAY = str(99) # number of jobs
+NARRAY = str(1) # number of jobs
 filename = "job"
 
 manual = 0
