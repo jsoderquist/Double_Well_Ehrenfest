@@ -17,7 +17,8 @@ import parameters as par
 @nb.jit(nopython=True, fastmath=True)
 def H_BC(data):
     Hbc  = np.zeros((par.nDW,par.nDW), dtype = np.complex128)
-    Hbc -= np.sum(par.cj[:] * data.x[:]) * par.R 
+    # cj = par.calc_cj(ωc)
+    Hbc -= np.sum(data.cjDWC[:] * data.x[:]) * par.R 
     data.H_bc = Hbc * 1.0
 
 # INITIALIZE BATH DOF
@@ -27,15 +28,15 @@ def initR(data):
     data.P[:] = 0
 
     β  = par.β
-    ωj = par.ωj
+    # ωj = par.calc_ωj(ωc)
 
     # WIGNER DISTRIBUTION FOR POSITION AND MOMENTA.
     # SAMPLED FROM A GAUSSIAN DISTRIBUTION WITH STANDARD DEVIATION σx AND σP.
-    σP = np.sqrt(ωj / (2 * np.tanh(0.5*β*ωj)))
-    σx = σP/ωj
+    σP = np.sqrt(data.ωjDWC / (2 * np.tanh(0.5*β*data.ωjDWC)))
+    σx = σP/data.ωjDWC
 
-    data.x[:] = np.random.normal(loc=0.0, scale=1.0, size= len(ωj)) * σx
-    data.P[:] = np.random.normal(loc=0.0, scale=1.0, size= len(ωj)) * σP
+    data.x[:] = np.random.normal(loc=0.0, scale=1.0, size= len(data.ωjDWC)) * σx
+    data.P[:] = np.random.normal(loc=0.0, scale=1.0, size= len(data.ωjDWC)) * σP
 
 
 # print('================')
