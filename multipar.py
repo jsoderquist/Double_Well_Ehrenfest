@@ -2,7 +2,7 @@
 #SBATCH -p polariton
 #SBATCH -o output_multipar.log
 #SBATCH --mem-per-cpu=4GB
-#SBATCH -t 15:00:00
+#SBATCH -t 1:00:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 

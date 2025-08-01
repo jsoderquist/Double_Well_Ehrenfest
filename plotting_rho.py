@@ -10,7 +10,9 @@ from scipy.optimize import curve_fit
 def rate_fit_func(P_data,kf,kb):
     return kf*P_data[0,:] - kb*P_data[1,:]
 
-ωcs = np.sort(np.array([0,500,1000,1100,1150,1190,1240,1300,1500,2000,800,900,1050,1125,1160,1170,1180,1400,1600]))*par.cmtoau # wavenumber to au (include 0 to get the rate outside the cavity)
+indexToPullRate = -1 # usually -1
+
+ωcs = np.insert(np.linspace(600,1600,100),0,0)*par.cmtoau # wavenumber to au (include 0 to get the rate outside the cavity)
 k_vals = np.zeros([len(ωcs)-1,1]) # rate constants
 k0 = 0 # create a variable for the rate outside the cavity
 for ii in range(len(ωcs)):
@@ -25,10 +27,14 @@ for ii in range(len(ωcs)):
     ρ = np.zeros((Nst, par.nDW), dtype=np.complex128)
     test = np.zeros((Nst,2), dtype=np.complex128)
     for k in range(cpus):
+        # print(ωc/par.cmtoau)
+        print(f'./data/rho_{k}_{ωc/par.cmtoau}.txt')
         if ωc == 0:
             ρ += np.loadtxt(f'./data/rho_{k}.txt') # pull from the data outside the cavity
         else:
+            # print(k)
             ρ += np.loadtxt(f'./data/rho_{k}_{ωc/par.cmtoau}.txt')
+        # print(np.isfinite(ρ))
     ρ /= cpus # averages over all trajectories
 
     # ===================================
@@ -36,30 +42,31 @@ for ii in range(len(ωcs)):
     # ========================================
     fig, ax = plt.subplots(figsize = (4.5,4.5))
     tot = np.sum(ρ, axis = 1)
-    ax.plot(time/par.fstoau/1000, ρ[:,0],  ls = '-', lw = 3, color = color[0],    label = r'$|\nu_L⟩$', alpha = 0.8) 
-    ax.plot(time/par.fstoau/1000, ρ[:,1],  ls = '-', lw = 3, color = color[1],    label = r'$|\nu_R⟩$', alpha = 0.8) 
-    ax.plot(time/par.fstoau/1000,ρ[:,2],  ls = '-', lw = 3, color = color[2],   label = r"$|\nu'_L⟩$", alpha = 0.8) 
-    ax.plot(time/par.fstoau/1000,ρ[:,3],  ls = '-', lw = 3, color = color[3],   label = r"$|\nu'_R⟩$", alpha = 0.8) 
-    ax.plot(time/par.fstoau/1000,tot,      ls = '--',lw = 2, color = color[-1],  label = r"$Tot. Pop$", alpha = 0.8) 
+    ax.plot(time[:indexToPullRate]/par.fstoau/1000, ρ[:indexToPullRate,0],  ls = '-', lw = 3, color = color[0],    label = r'$|\nu_L⟩$', alpha = 0.8) 
+    ax.plot(time[:indexToPullRate]/par.fstoau/1000, ρ[:indexToPullRate,1],  ls = '-', lw = 3, color = color[1],    label = r'$|\nu_R⟩$', alpha = 0.8) 
+    ax.plot(time[:indexToPullRate]/par.fstoau/1000,ρ[:indexToPullRate,2],  ls = '-', lw = 3, color = color[2],   label = r"$|\nu'_L⟩$", alpha = 0.8) 
+    ax.plot(time[:indexToPullRate]/par.fstoau/1000,ρ[:indexToPullRate,3],  ls = '-', lw = 3, color = color[3],   label = r"$|\nu'_R⟩$", alpha = 0.8) 
+    ax.plot(time[:indexToPullRate]/par.fstoau/1000,tot[:indexToPullRate],      ls = '--',lw = 2, color = color[-1],  label = r"$Tot. Pop$", alpha = 0.8) 
 
-    state_0 = np.loadtxt('./Deping_data/state_0.txt')
-    state_1 = np.loadtxt('./Deping_data/state_1.txt')
-    state_2 = np.loadtxt('./Deping_data/state_2.txt')
-    state_3 = np.loadtxt('./Deping_data/state_3.txt')
+    # state_0 = np.loadtxt('./Deping_data/state_0.txt')
+    # state_1 = np.loadtxt('./Deping_data/state_1.txt')
+    # state_2 = np.loadtxt('./Deping_data/state_2.txt')
+    # state_3 = np.loadtxt('./Deping_data/state_3.txt')
 
-    ax.plot(state_0[:,0], state_0[:,1], ls = '-.', lw = 1, color = 'black', alpha = 0.9)
-    ax.plot(state_1[:,0], state_1[:,1], ls = '-.', lw = 1, color = 'black', alpha = 0.9)
-    ax.plot(state_2[:,0], state_2[:,1], ls = '-.', lw = 1, color = 'black', alpha = 0.9)
-    ax.plot(state_3[:,0], state_3[:,1], ls = '-.', lw = 1, color = 'black', alpha = 0.9)
-    ax.axhline(0, ls = '--', lw = 1, color = 'black')
-    ax.axhline(1, ls = '--', lw = 1, color = 'black')
-    ax.set_xlim(time[0]/par.fstoau/1000,time[-1]/par.fstoau/1000)
+    # ax.plot(state_0[:,0], state_0[:,1], ls = '-.', lw = 1, color = 'black', alpha = 0.9)
+    # ax.plot(state_1[:,0], state_1[:,1], ls = '-.', lw = 1, color = 'black', alpha = 0.9)
+    # ax.plot(state_2[:,0], state_2[:,1], ls = '-.', lw = 1, color = 'black', alpha = 0.9)
+    # ax.plot(state_3[:,0], state_3[:,1], ls = '-.', lw = 1, color = 'black', alpha = 0.9)
+    # ax.axhline(0, ls = '--', lw = 1, color = 'black')
+    # ax.axhline(1, ls = '--', lw = 1, color = 'black')
+    ax.set_xlim(time[0]/par.fstoau/1000,time[indexToPullRate]/par.fstoau/1000)
     ax.xaxis.set_minor_locator(AutoMinorLocator())
     ax.yaxis.set_minor_locator(AutoMinorLocator())
     ax.tick_params(which='major', length=12, labelsize = 13, direction = 'in')
     ax.tick_params(which='minor', length=5, direction = 'in')
-    ax.set_xlabel('Time (fs)', fontsize = 20)
+    ax.set_xlabel('Time (ps)', fontsize = 20)
     ax.set_ylabel('Population', fontsize = 20)
+    # ax.set_ylim(0,0.003)
 
 
     ax.legend(title ='Vibrational States', loc=0, frameon = False, fontsize = 9, handlelength=1, title_fontsize = 9, labelspacing = 0.2)
@@ -81,9 +88,9 @@ for ii in range(len(ωcs)):
     
     # save rate constant
     if ωc == 0:
-        k0 = kf[-1]
+        k0 = kf[indexToPullRate]
     else:
-        k_vals[ii-1] = kf[-1]
+        k_vals[ii-1] = kf[indexToPullRate]
 
     # calculate their reaction rate
     # P0 = state_0[:,1]
@@ -105,17 +112,21 @@ for ii in range(len(ωcs)):
 
     # plot reaction rate - the forward rate is the one we call the reaction rate
     fig, ax = plt.subplots(2,figsize = (4.5,4.5))
-    ax[0].plot(time[1:]/par.fstoau/1000, kf,  ls = '-', lw = 3, color = color[0],    label = 'kf', alpha = 0.8)
-    ax[1].plot(time[1:]/par.fstoau/1000, kb,  ls = '-', lw = 3, color = color[0],    label = 'kb', alpha = 0.8)
+    if indexToPullRate == -1:
+        ax[0].plot(time[1:]/par.fstoau/1000, kf[:],  ls = '-', lw = 3, color = color[0],    label = 'kf', alpha = 0.8)
+        ax[1].plot(time[1:]/par.fstoau/1000, kb[:],  ls = '-', lw = 3, color = color[0],    label = 'kb', alpha = 0.8)
+    else:
+        ax[0].plot(time[1:(indexToPullRate+1)]/par.fstoau/1000, kf[:indexToPullRate],  ls = '-', lw = 3, color = color[0],    label = 'kf', alpha = 0.8)
+        ax[1].plot(time[1:(indexToPullRate+1)]/par.fstoau/1000, kb[:indexToPullRate],  ls = '-', lw = 3, color = color[0],    label = 'kb', alpha = 0.8)
     # ax[0].plot(state_0[1:,0], kf_deping, ls = '-.', lw = 1, color = 'black', alpha = 0.9, label = 'kf Deping Data')
     # ax[1].plot(state_1[1:,0], kb_deping, ls = '-.', lw = 1, color = 'black', alpha = 0.9, label = 'kb Deping Data')
     # ax[0].set_xlabel('Time (fs)', fontsize = 20)
     # ax[0].set_ylabel('Reaction Rate', fontsize = 20)
-    ax[0].set_xlim(time[0]/par.fstoau/1000,time[-1]/par.fstoau/1000)
-    ax[1].set_xlabel('Time (fs)', fontsize = 20)
+    # ax[0].set_xlim(7,time[-1]/par.fstoau/1000)
+    ax[1].set_xlabel('Time (ps)', fontsize = 20)
     ax[1].set_ylabel('Reaction Rate (1/ps)', fontsize = 20)
-    ax[1].set_xlim(time[0]/par.fstoau/1000,time[-1]/par.fstoau/1000)
-    ax[1].set_ylim(-3,3)
+    # ax[1].set_xlim(7,time[-1]/par.fstoau/1000)
+    # ax[1].set_ylim(-3,3)
     ax[0].legend()
     ax[1].legend()
     plt.savefig(f'images/ratewithcav_{ωc/par.cmtoau}.png', dpi = 300, bbox_inches='tight')

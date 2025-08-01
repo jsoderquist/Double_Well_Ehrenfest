@@ -1,5 +1,5 @@
 #!/software/anaconda3/2020.11/bin/python
-#SBATCH -p polariton
+#SBATCH -p standard
 #SBATCH -x bhd0005,bhc0024,bhd0020
 #SBATCH --output=qjob.out
 #SBATCH --error=qjob.err
@@ -15,9 +15,12 @@ import MFE as method
 import parameters as par
 import TrajClass as tc
 import model
+import matplotlib.pyplot as plt
+import sys
+from scipy.signal import argrelmax
 # =================================
 
-ωcs = np.sort(np.array([500,1000,1100,1150,1190,1240,1300,1500,2000,800,900,1050,1125,1160,1170,1180,1400,1600]))*par.cmtoau # wavenumber to au
+ωcs = np.linspace(600,1600,100)*par.cmtoau # wavenumber to au
 for ωc in ωcs:
 
     # =========================
@@ -78,20 +81,45 @@ for ωc in ωcs:
     TaskArray = np.array(TaskArray)                                  # CONTAINS THE NUMBER OF TRAJECTORIES ASSIGNED TO EACH JOB
     # =================================
 
+    trajData = tc.trajData(par.nDW, par.ndof, par.NSteps, par.nData, ωc) # INITIATE THE TIME DEPENDENT DATA
     ρw = np.zeros((par.nData, par.nDW))                              # DENSITY MATRIX AVERAGED OVER THE NUMBER OF TRAJECTORIES ASSIGNED TO THIS JOB
-    trajData = tc.trajData(par.nDW, par.ndof, par.NSteps, par.nData) # INITIATE THE TIME DEPENDENT DATA
 
     sim_ti = tm.time()
-    trajData.ωj = par.calc_ωj(ωc) # calculate these here so that we can automate the system
-    trajData.cj = par.calc_cj(ωc)
+    trajData.cj, trajData.ωj = par.calc_cjωj(ωc) # calculate these here so that we can automate the system
+    trajData.dHij = par.dHij_cons(trajData.cj)
+
+    # plot spectral density
+    J = par.J_eff(1/par.τc, par.ηc, ωc, np.linspace(800,1400,2000)*par.cmtoau,par.λQ,par.γQ,par.nsolvent,1,par.Λ,par.ωQ)
+    # J = par.J_DrudeL(par.λD, par.γD, np.linspace(600,1600,2000)*par.cmtoau)
+    # for n in range(par.ndof):
+    #     plt.axvline(trajData.ωj[n]/par.cmtoau, ls = '-.', color = 'black', lw = 1)
+    plt.plot(np.linspace(600,1600,2000),J, lw = 3, label=ωc)#, c = 'r')
+    if par.ηc == 0: # no cavity case
+        try:
+            plt.savefig('../images/spectralDen.png')
+        except:
+            plt.savefig('./images/spectralDen.png')
+    else:
+        try:
+            plt.savefig('../images/spectralDenInCav.png')
+        except:
+            plt.savefig('./images/spectralDenInCav.png')
+
+    temp = np.linspace(600,1600,2000)
+    # print(temp[argrelmax(J)])
+
+    # sys.exit("I only want to plot the spectral density right now")
+    
+    # trajData.cj = par.calc_cj(ωc)
     for i in range(len(TaskArray)):
         method.run_traj(trajData)
         ρw += trajData.ρw
+        # print(trajData.H_bc," ",trajData.dHij)
     sim_tf = tm.time()
     print(f'Simulation time --> {np.round(sim_tf - sim_ti,2)} s or {np.round((sim_tf - sim_ti)/60,2)} min')
     print(' ================================================================================================= ')
 
-    if par.nbath == 1:
+    if par.ηc == 0: # no cavity case
         try:
             np.savetxt(f'../data/rho_{nrank}.txt', ρw/len(TaskArray))   # RUN IN PARALLEL
         except:

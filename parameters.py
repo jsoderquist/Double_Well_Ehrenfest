@@ -25,13 +25,30 @@ def Rx(nDW):
             pos_DW[j,i] = np.trapz(avg_pos,x0,dx)
     return pos_DW
 
+# solvent Q IN ENERGY BASIS
+# @nb.jit(nopython=True, fastmath=True)
+# def Qx(nSlevels):
+#     pos_solv = np.zeros((nSlevels,nSlevels), dtype = np.complex128)
+#     for j in range(nSlevels):
+#         for i in range(nSlevels):
+#             avg_pos = VS[:,j].conjugate() * xS0 * VS[:,i]
+#             pos_solv[j,i] = np.trapz(avg_pos,xS0,dSx)
+#     return pos_solv
+
 # DOUBLE WELL POTENTIAL ENERGY
 @nb.jit(nopython=True, fastmath=True)
 def DW(x,m,wDW):
-    m = 1 # I don't know why this is being redefined here. It's already given to the function as 1, but it's not used anyway
+    # m = 1836 # I don't know why this is being redefined here. It's already given to the function as 1, but it's not used anyway
     Eb = 2250 * cmtoau
-    V = -(wDW**2 / 2) * x**2 + (wDW**4 / (16 * Eb)) * x**4
+    V = -(m*wDW**2 / 2) * x**2 + (m**2*wDW**4 / (16 * Eb)) * x**4
     return V - min(V)
+
+# solvent potential
+# @nb.jit(nopython=True, fastmath=True)
+# def solvPot(x,m,ωS):
+#     m = 1 # I don't know why this is being redefined here. It's already given to the function as 1, but it's not used anyway
+#     V = 0.5*m*ωS**2*x**2
+#     return V - min(V)
 
 # KINETIC ENERGY
 @nb.jit(nopython=True, fastmath=True)
@@ -58,6 +75,16 @@ def DVR(x,m,wDW):
     E, V = np.linalg.eigh(V+K)
     return E, V
 
+# DISCRETE VARIABLE REPRESENTATION FUNCTION for solvent
+# diagonalizes the P^2/2M + V part of H as the basis
+# @nb.jit(nopython=True, fastmath=True)
+# def DVRS(x,m,ωS):
+#     V = solvPot(x,m,ωS)
+#     V = np.diag(V)
+#     K = T(x,m)
+#     E, V = np.linalg.eigh(V+K)
+#     return E, V
+
 # DRUDE - LORENTZ SPECTRAL DENSITY
 @nb.jit(nopython=True, fastmath=True)
 def J_DrudeL(λ, γ, ω):
@@ -65,8 +92,10 @@ def J_DrudeL(λ, γ, ω):
 
 # Effective Cavity SPECTRAL DENSITY
 @nb.jit(nopython=True, fastmath=True)
-def J_eff(α, ηc, ωc, ω):
-    return (2*α*ηc**2*ωc**3*ω)/((ωc**2 - ω**2)**2 + α**2*ω**2)
+def J_eff(α, ηc, ωc, ω,λQ,γQ,nsolvent,χ,Λ,ωQ):
+    ΓQ = 2*λQ/γQ + (2*nsolvent*χ**2*ωc**3*ηc**2*α)/((ωc**2 - ω**2)**2 + α**2*ω**2)
+    scriptR = (2*nsolvent*χ**2*ωc*ηc**2*ω**2)*(ω**2 - ωc**2 + α**2)/((ωc**2 - ω**2)**2 + α**2*ω**2)
+    return (Λ*ωQ**2*ω*ΓQ)/((ωQ**2 - ω**2 + scriptR)**2 + (ω*ΓQ)**2)
 
 # BATH PARAMETERS
 @nb.jit(nopython=True, fastmath=True)
@@ -105,7 +134,7 @@ def BathParam(λD, γD, N, num):
 
 # CAVITY BATH PARAMETERS
 @nb.jit(nopython=True, fastmath=True)
-def CavBathParam(τc, ηc, ωc, N, num):  
+def EffBathParam(τc, ηc, ωc, N, num, λQ, γQ, ωQ, Λ):  
     α = 1/τc
     ωj = np.zeros((N))
     cj = np.zeros((N), dtype = np.complex128)
@@ -124,7 +153,7 @@ def CavBathParam(τc, ηc, ωc, N, num):
     # NUMERICAL DISCRETIZATION OF SPECTRAL DENSITY
     # Walters, P. L.; et al.  J Comput Chem 2017, 38 (2), 110–115. https://doi.org/10.1002/jcc.24527.
 
-    J = J_eff(α , ηc, ωc, ω)  
+    J = J_eff(α , ηc, ωc, ω,λQ,γQ,nsolvent,1,Λ,ωQ)  
 
     Fω = np.zeros(len(ω)) # LHS of eq. 2.6
     for i in range(len(ω)):
@@ -135,8 +164,9 @@ def CavBathParam(τc, ηc, ωc, N, num):
         costfunc = np.abs(Fω-(((float(i)-0.5)/float(N))*λs)) # see eq. 2.6
         m = np.argmin((costfunc))
         ωj[i] = ω[m]
-    mj = M # let all molecules have equal mass
+    mj = MQ # let all molecules have equal mass
     cj[:] = ωj[:] * np.sqrt(mj) * ((λs/(2*float(N)))**0.5) # see paragraph under eq 2.6 and earlier paragraph that says cj = κ*sqrt(m_j)*ω_j
+    print("CQ: ",cj[0]/cmtoau)
     return cj, ωj
 
 # BOSONIC CREATION OPERATOR
@@ -149,9 +179,9 @@ def creation(n):
 
 # ∂H/∂x_i - POSITION INDEPENDENT PART
 # THIS FUNCTION CAN NOT BE JITTED!!!
-def dHij_cons(data):
+def dHij_cons(cj):
     dHij         = np.zeros((ndof, nDW, nDW), dtype = np.complex128)
-    dHij[:,:,:] -= np.kron(data.cj, R).T.reshape(ndof, nDW, nDW)
+    dHij[:,:,:] -= np.kron(cj, R).T.reshape(ndof, nDW, nDW)
     return dHij
 
 # ELECTRONIC HAMILTONIAN 
@@ -165,7 +195,11 @@ def Hel_cons(data):
     H[1,0] += (EDW[1] - EDW[0])/2                       
     H[2,3] += (EDW[3] - EDW[2])/2                       # |ν'_L⟩ - |ν'_R⟩ coupling  Δ' = (E[2] - E[3])/2
     H[3,2] += (EDW[3] - EDW[2])/2                       
-    H      += np.sum(data.cj**2/data.ωj**2) * R2/2      # Adds reorganization energy - already includes cavity reorg energy when included
+    H      += np.sum(data.cj[:]**2/data.ωj[:]**2) * R2/2      # Adds reorganization energy
+    # if ~np.isfinite(H).all():
+    #         raise Exception(f"Hel is not finite. Hel: {H} R2: {R2} rho: {data.ρt} nDW: {nDW}  diaE: {np.diag(diaE)} EDW: {EDW} cj: {data.cj} ωj: {data.ωj}")
+    # H      += np.sum(data.cj[:data.nt]**2/data.ωj[:data.nt]**2) * R2/2      # Adds reorganization energy
+    # H      += ηc**2*data.ωc   # add reorg energy of effective bath - if the results are wrong, it's probably because of this
     return H 
 
 '''
@@ -173,29 +207,40 @@ def Hel_cons(data):
         Hu. D., et al. (J. Phys. Chem. Lett. 2023, 14 (49), 11208–11216. https://doi.org/10.1021/acs.jpclett.3c02985.)
 '''
 
-# DEFINE cj
-def calc_cj(ωc):
+# DEFINE cj and ωj
+@nb.jit(nopython=True, fastmath=True)
+def calc_cjωj(ωc):
     num    = True                                             # DISCRETIZATION OF THE SPECTRAL DENSITY | True ⇒ Numerical | False ⇒ Analytical
-    cj, ωj = BathParam(λD, γD, ndofb, num)                      # BATH COUPLINGS AND FREQUENCIES
 
-    if nbath > 1: # include cavity if requested
-        ck, ωk = CavBathParam(τc, ηc, ωc, ndofc, num)                      # cavity BATH COUPLINGS AND FREQUENCIES
+    # # combine all lambda and gamma values so I don't have to calculate the bath over and over
+    # λcomb = λD
+    # γcomb = γD
+    # for ii in range(nsolvent):
+    #     λcomb = np.hstack((λcomb,λQ))
+
+    cj, ωj = BathParam(λD, γD, ndofb, num)                      # BATH COUPLINGS AND FREQUENCIES
+    # ck, ωk = BathParam(λQ, γQ, ndofs, num)                      # solvent BATH COUPLINGS AND FREQUENCIES
+
+    # combine couplings and frequencies into one matrix
+    # ck = np.repeat(ck,nsolvent) # get couplings for each solvent molecule
+    # ωk = np.repeat(ωk,nsolvent)
+    # cj = np.hstack((cj,ck))
+    # ωj = np.hstack((ωj,ωk))
+    # for ii in range(nsolvent):
+    #     # combine bath parameters into one variable
+    #     cj = np.hstack((cj,ck))
+    #     ωj = np.hstack((ωj,ωk))
+
+    if nbath > nsolvent+1: # include cavity if requested
+        ck, ωk = EffBathParam(τc, ηc, ωc, ndofc, num, λQ, γQ, ωQ, Λ)                       # cavity BATH COUPLINGS AND FREQUENCIES
+
+        print("check Λ: ", np.sum(ck[:]**2/(2*ωQ**2))/cmtoau, " ",Λ/cmtoau)
 
         # combine bath parameters into one variable
         cj = np.hstack((cj,ck))
-    return cj
-
-# DEFINE ωj
-def calc_ωj(ωc):
-    num    = True                                             # DISCRETIZATION OF THE SPECTRAL DENSITY | True ⇒ Numerical | False ⇒ Analytical
-    cj, ωj = BathParam(λD, γD, ndofb, num)                      # BATH COUPLINGS AND FREQUENCIES
-
-    if nbath > 1: # include cavity if requested
-        ck, ωk = CavBathParam(τc, ηc, ωc, ndofc, num)                      # cavity BATH COUPLINGS AND FREQUENCIES
-
-        # combine bath parameters into one variable
         ωj = np.hstack((ωj,ωk))
-    return ωj
+        print("check Λ including cj not just ck: ", np.sum(cj[:]**2/(2*ωQ**2))/cmtoau)
+    return cj, ωj
 
 # PHYSICAL CONSTANTS
 # ==================================
@@ -207,16 +252,24 @@ temp   = 300 / autoK
 
 # SYSTEM PARAMETERS ==================================
 M = 1.0                                                   # R0 MASS
-nDW = 4                                                   # NUMBER OF VIBRATIONAL STATES IN DW
+MQ = 1.0                                                  # Solvent MASS
+nDW = 4                                                   # NUMBER OF VIBRATIONAL STATES IN DW - note that if I increase this, my diaE and diaV need to be changed too
 wDW = 1000 * cmtoau                                       # DW BARRIER FREQUENCY
+nSlevels = 3                                              # Number of levels represented in the solvent harmonic oscillator
 N = 1024                                                  # NUMBER OF POINTS THAT DISCRETIZE R0 FOR DVR
 L = 100.0                                                 # UPPER AND LOWER R0 LIMIT [-L, L]
 x0 = np.linspace(-L,L,N)                                  # R0
 dx = x0[0] - x0[1]                                        # dx
+# xS0 = np.linspace(-L,L,N)                                 # Q0
+# dSx = x0[0] - x0[1]                                       # dx for solvent
 EDW, VDW = DVR(x0,M,wDW)                                  # EIGENENERGIES AND EIGENSTATES FOR THE DW (Nuclear kinetic energy plus the V potential)
 Normx = np.trapz(VDW[:,0].conjugate() * VDW[:,0],x0,dx)    
 VDW = VDW/(Normx)**0.5                                    # NORMALIZE THE EIGENSTATES
 VDW = -1.0 * np.array(VDW, dtype = np.complex128)         # EIGENSTATES ARE IN THE OPPOSITE DIRECTION
+# ES, VS = DVRS(x0,MQ,wDW)                                  # EIGENENERGIES AND EIGENSTATES FOR THE DW (Nuclear kinetic energy plus the V potential)
+# Normx = np.trapz(VS[:,0].conjugate() * VS[:,0],x0,dx)    
+# VS = VS/(Normx)**0.5                                      # NORMALIZE THE EIGENSTATES
+# VS = np.array(VS, dtype = np.complex128)                  # make it complex
 
 # DIABATIZATION OF  VIBRATIONAL STATES
 # EIGENSTATES
@@ -235,6 +288,11 @@ diaE -= diaE[0]                                                 # GROUND STATE E
 # POSITION OPERATOR
 R = Rx(nDW)
 
+print("Transition Energy: ", diaE[2]/cmtoau)
+
+# POSITION OPERATOR
+# Q = Qx(nSlevels)
+
 # INITIAL STATE ==================================
 # SYSTEM IS INITIALIZED IN THE REACTANT STATE |ν_L⟩
 ρ0 = np.zeros((nDW,nDW), dtype = np.complex128)
@@ -250,7 +308,7 @@ NSteps   = int(tf/dtN)                                     # NUMBER OF SIMULATIO
 Sim_time = np.array([(x * dtN) for x in range(NSteps)])    # SIMULATION TIMES ARRAY
 Estep    = 30                                              # NUMBER OF ELECTRONIC STEPS PER NUCLEAR TIME STEP ⇒ MUST BE EVEN!!!!
 dtE      = dtN/Estep                                       # ELECTRONIC TIME STEP
-nskip    = 5                                               # FRAME SAVING RATE
+nskip    = 30                                               # FRAME SAVING RATE
 
 if NSteps%nskip == 0:
     nData = NSteps // nskip + 0
@@ -258,33 +316,44 @@ else :
     nData = NSteps // nskip + 1
 
 # BATH PARAMETERS ==============================
-nbath = 2    # number of baths present (solvent and cavity) - change to 1 for no cavity
-ndofb   = 300                                               # NUMBER OF BATH OSCILLATORS
+nsolvent = 1000                                            # number of solvent molecules to simulate
+nbath = nsolvent + 2    # number of baths present (solvent and cavity)
+ndofs = 300                                                # number of frequencies per solvent molecule in discretization
+ndofb   = 300                                              # NUMBER OF BATH OSCILLATORS (low frequencies of molecule?)
 ndofc = 300                                                # number of cavity degrees of freedom
-if nbath > 1:
-    ndof = ndofb + ndofc                                       # total number of degrees of freedom
+if nbath == nsolvent+1:
+    ndofDWC = ndofb                                        # total number of degrees of freedom in the double well plus the cavity
+    ndofSC = ndofs*nsolvent                                # degrees of freedom in one solvent molecule plus the cavity
 else:
-    ndof = ndofb
-γD     = 200 * cmtoau                                      # BATH CHARACTERISTIC FREQUENCY   
-λD     = 0.1 * wDW * γD/2                                  # BATH REORGANIZATION ENERGY  
+    ndofDWC = ndofb + ndofc
+    ndofSC = ndofs*nsolvent + ndofc
+ndof = ndofDWC#ndofs*nsolvent + ndofDWC
+γD     = 200 * cmtoau                                      # BATH CHARACTERISTIC FREQUENCY (value from Sebastian's JACS paper)
+η0 = 0.1
+λD     = η0 * M * wDW * γD/2                                 # BATH REORGANIZATION ENERGY  (equation from Arkajit's paper?) 
+print("λD ",λD/cmtoau)
+γQ     = 6000 * cmtoau                                     # Solvent bath CHARACTERISTIC FREQUENCY   (value from Sebastian's JACS paper) 
+λQ     = 0.147 * cmtoau                                    # solvent BATH REORGANIZATION ENERGY  
+ωQ     = 1189.7 * cmtoau                                   # solvent characteristic frequency
+Λ      = 0.0009328299310150123*cmtoau#1.71 *cmtoau                                      # spectator mode reorganization energy
 num    = False                                             # DISCRETIZATION OF THE SPECTRAL DENSITY | True ⇒ Numerical | False ⇒ Analytical
 
-τc = 2000*fstoau
-ηc = 1.25*10**-3 #au
+τc = 500*fstoau
+ηc = 5*10**-3/np.sqrt(1000) #au - change to 0 for no cavity
 
 # TIME INDEPENDENT FUNCTIONS ==============================
 # Hel  = Hel_cons(cj,ωj)                                          # ELECTRONIC HAMILTONIAN | INDEPENDENT OF THE POSITION OF THE BATH OSCILLATOR
 # dHij = dHij_cons(cj)                                         # ∂H/∂x_i                | INDEPENDENT OF THE POSITION OF THE BATH OSCILLATOR | DO NOT JIT
 
 
-if __name__ == '__main__': 
-    print(np.real(np.round(Hel/cmtoau,3)))
-    print('================')
-    print(np.real(np.round(R,3)))
-    print('================')
-    # print(np.real(np.sum((cj/ωj)**2)*np.dot(R,R)/2)/cmtoau)
-    J = J_DrudeL(λD, γD, np.linspace(0,2500,200) * cmtoau)
-    for n in range(ndof):
-        plt.axvline(ωj[n]/cmtoau, ls = '-.', color = 'black', lw = 1)
-    plt.plot(np.linspace(0,2500,200),J, lw = 3, c = 'r')
-    plt.savefig('images/spectralDen.png')
+# if __name__ == '__main__': 
+# print(np.real(np.round(Hel/cmtoau,3)))
+# print('================')
+# print(np.real(np.round(R,3)))
+# print('================')
+# print(np.real(np.sum((cj/ωj)**2)*np.dot(R,R)/2)/cmtoau)
+# J = J_eff(1/τc, ηc, 1190, np.linspace(0,2500,200)*cmtoau,λQ,γQ,nsolvent,1,Λ,ωQ)
+# for n in range(ndof):
+#     plt.axvline(ωj[n]/cmtoau, ls = '-.', color = 'black', lw = 1)
+# plt.plot(np.linspace(0,2500,200),J, lw = 3, c = 'r')
+# plt.savefig('images/spectralDen.png')

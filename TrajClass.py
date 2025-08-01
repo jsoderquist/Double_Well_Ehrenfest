@@ -10,6 +10,7 @@ spec = [
     ('nSteps',                  int32), # NUMBER OF EVOLUTION STEPS
     ('nData',                   int32), # NUMBER OF SAVED STEPS
     ('ndof',                    int32), # NUMBER OF BATH MODES
+    ('ωc',                    float64), # current cavity resonant frequency
     ('x',                  float64[:]), # BATH POSITION
     ('P',                  float64[:]), # BATH MOMENTA
     ('v',                  float64[:]), # BATH VELOCITY
@@ -21,23 +22,26 @@ spec = [
     ('test',          complex128[:,:]), # PLACE HOLDER FOR THE DENSITY MATRIX
     ('cj',            complex128[:]), # place holder for the coupling coefficients
     ('ωj',                 float64[:]), # place holder for the discretized frequencies
+    ('dHij',          complex128[:,:,:]), # place holder
 ]
 
 @jitclass(spec)
 class trajData(object):
-    def __init__(self, nDW, ndof, nSteps, nData):
+    def __init__(self, nDW, ndof, nSteps, nData, ωc):
         self.nt     = nDW
         self.nSteps = nSteps
         self.nData  = nData
         self.ndof   = ndof
+        self.ωc     = ωc
         self.x      = np.zeros(self.ndof, dtype = np.float64)
         self.P      = np.zeros(self.ndof, dtype = np.float64)
         self.v      = np.zeros(self.ndof, dtype = np.float64)
         self.F1     = np.zeros(self.ndof, dtype = np.float64)
         self.F2     = np.zeros(self.ndof, dtype = np.float64)
         self.ρt     = np.zeros((self.nt, self.nt), dtype = np.complex128)
-        self.H_bc   = np.zeros((self.nt, self.nt), dtype = np.complex128)
+        self.H_bc   = np.zeros((self.nt,self.nt), dtype = np.complex128)
         self.ρw     = np.zeros((nData,self.nt))
         self.test   = np.zeros((nData,2) , dtype = np.complex128)
         self.cj     = np.zeros(self.ndof, dtype = np.complex128)
         self.ωj     = np.zeros(self.ndof, dtype = np.float64)
+        self.dHij   = np.zeros((ndof, nDW, nDW), dtype = np.complex128)
