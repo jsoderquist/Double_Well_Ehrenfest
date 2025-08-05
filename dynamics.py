@@ -20,7 +20,7 @@ import sys
 from scipy.signal import argrelmax
 # =================================
 
-ωcs = np.linspace(600,1600,100)*par.cmtoau # wavenumber to au
+ωcs = np.insert(np.linspace(700,1700,101),0,1189.7)*par.cmtoau#np.array([1189.7])*par.cmtoau # wavenumber to au
 for ωc in ωcs:
 
     # =========================
@@ -89,11 +89,12 @@ for ωc in ωcs:
     trajData.dHij = par.dHij_cons(trajData.cj)
 
     # plot spectral density
-    J = par.J_eff(1/par.τc, par.ηc, ωc, np.linspace(800,1400,2000)*par.cmtoau,par.λQ,par.γQ,par.nsolvent,1,par.Λ,par.ωQ)
+    wvals = np.linspace(700,1700,2000) # omega values in spectral density plot
+    J = par.J_eff(1/par.τc, par.ηc, ωc, wvals*par.cmtoau,par.λQ,par.γQ,par.nsolvent,1,par.Λ,par.ωQ)
     # J = par.J_DrudeL(par.λD, par.γD, np.linspace(600,1600,2000)*par.cmtoau)
     # for n in range(par.ndof):
     #     plt.axvline(trajData.ωj[n]/par.cmtoau, ls = '-.', color = 'black', lw = 1)
-    plt.plot(np.linspace(600,1600,2000),J, lw = 3, label=ωc)#, c = 'r')
+    plt.plot(wvals,J, lw = 3, label=ωc)#, c = 'r')
     if par.ηc == 0: # no cavity case
         try:
             plt.savefig('../images/spectralDen.png')
@@ -105,8 +106,13 @@ for ωc in ωcs:
         except:
             plt.savefig('./images/spectralDenInCav.png')
 
-    temp = np.linspace(600,1600,2000)
-    # print(temp[argrelmax(J)])
+    extrema = wvals[argrelmax(J)]
+    if len(extrema) > 1:
+        checkΩ = extrema[1] - extrema[0]
+        print("Ω: ", checkΩ, " μQ: ",checkΩ/2/np.sqrt(par.nsolvent)/par.ηc/(ωc/par.cmtoau))
+        print(extrema)
+    else:
+        print(len(extrema))
 
     # sys.exit("I only want to plot the spectral density right now")
     

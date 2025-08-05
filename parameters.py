@@ -166,7 +166,7 @@ def EffBathParam(τc, ηc, ωc, N, num, λQ, γQ, ωQ, Λ):
         ωj[i] = ω[m]
     mj = MQ # let all molecules have equal mass
     cj[:] = ωj[:] * np.sqrt(mj) * ((λs/(2*float(N)))**0.5) # see paragraph under eq 2.6 and earlier paragraph that says cj = κ*sqrt(m_j)*ω_j
-    print("CQ: ",cj[0]/cmtoau)
+    # print("CQ: ",cj[0]/cmtoau)
     return cj, ωj
 
 # BOSONIC CREATION OPERATOR
@@ -239,7 +239,7 @@ def calc_cjωj(ωc):
         # combine bath parameters into one variable
         cj = np.hstack((cj,ck))
         ωj = np.hstack((ωj,ωk))
-        print("check Λ including cj not just ck: ", np.sum(cj[:]**2/(2*ωQ**2))/cmtoau)
+        # print("check Λ including cj not just ck: ", np.sum(cj[:]**2/(2*ωQ**2))/cmtoau)
     return cj, ωj
 
 # PHYSICAL CONSTANTS
@@ -288,7 +288,7 @@ diaE -= diaE[0]                                                 # GROUND STATE E
 # POSITION OPERATOR
 R = Rx(nDW)
 
-print("Transition Energy: ", diaE[2]/cmtoau)
+# print("Transition Energy: ", diaE[2]/cmtoau)
 
 # POSITION OPERATOR
 # Q = Qx(nSlevels)
@@ -301,7 +301,7 @@ print("Transition Energy: ", diaE[2]/cmtoau)
 # SIMULATION PARAMETERS ==============================
 parallel = True                                            # DO PARALLELIZATION
 Cpus     = 100                                             # NUMBER THE CPUS USE FOR PARALLELIZATION
-NTraj    = 2000                                           # NUMBER OF TRAJECTORIES
+NTraj    = 3000                                           # NUMBER OF TRAJECTORIES
 tf       = 10000 * fstoau                                   # SIMULATION TIME IN FEMTOSECONDS
 dtN      = 6                                               # NUCLEAR TIME STEP
 NSteps   = int(tf/dtN)                                     # NUMBER OF SIMULATION STEPS
@@ -316,7 +316,7 @@ else :
     nData = NSteps // nskip + 1
 
 # BATH PARAMETERS ==============================
-nsolvent = 1000                                            # number of solvent molecules to simulate
+nsolvent = 1                                            # number of solvent molecules to simulate
 nbath = nsolvent + 2    # number of baths present (solvent and cavity)
 ndofs = 300                                                # number of frequencies per solvent molecule in discretization
 ndofb   = 300                                              # NUMBER OF BATH OSCILLATORS (low frequencies of molecule?)
@@ -331,7 +331,7 @@ ndof = ndofDWC#ndofs*nsolvent + ndofDWC
 γD     = 200 * cmtoau                                      # BATH CHARACTERISTIC FREQUENCY (value from Sebastian's JACS paper)
 η0 = 0.1
 λD     = η0 * M * wDW * γD/2                                 # BATH REORGANIZATION ENERGY  (equation from Arkajit's paper?) 
-print("λD ",λD/cmtoau)
+# print("λD ",λD/cmtoau)
 γQ     = 6000 * cmtoau                                     # Solvent bath CHARACTERISTIC FREQUENCY   (value from Sebastian's JACS paper) 
 λQ     = 0.147 * cmtoau                                    # solvent BATH REORGANIZATION ENERGY  
 ωQ     = 1189.7 * cmtoau                                   # solvent characteristic frequency
@@ -339,7 +339,8 @@ print("λD ",λD/cmtoau)
 num    = False                                             # DISCRETIZATION OF THE SPECTRAL DENSITY | True ⇒ Numerical | False ⇒ Analytical
 
 τc = 500*fstoau
-ηc = 5*10**-3/np.sqrt(1000) #au - change to 0 for no cavity
+Ω = 114 # Rabi Splitting
+ηc = 0.005*Ω/114.05702851425713 #au - change to 0 for no cavity
 
 # TIME INDEPENDENT FUNCTIONS ==============================
 # Hel  = Hel_cons(cj,ωj)                                          # ELECTRONIC HAMILTONIAN | INDEPENDENT OF THE POSITION OF THE BATH OSCILLATOR
