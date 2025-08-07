@@ -11,7 +11,6 @@ import subprocess
 import time
 import numpy as np
 from pathlib import Path
-# import parameters as par
 
 try:
     os.rmdir("/scratch/jsoderqu/Simpkins/MFE/parallel/tmpdir")

@@ -41,32 +41,7 @@ for ωc in ωcs:
     else:
         nrank = 0
         size  = 1
-
-    # =================================
-    # COMPILATION 
-    # =================================
-    # WITH JIT, THE CODE MUST BE COMPILE FIRST. RUN THE CODE FOR ONLY TWO TIME STEPS FIRST
-    # com_ti = tm.time()
-    # nDW_dummy = par.nDW
-    # ndof_dummy = par.ndof
-    # nsteps_dummy = 2
-    # data_dummy = tc.trajData(nDW_dummy, ndof_dummy, nsteps_dummy, nsteps_dummy)
-    # data_dummy.ρt = par.ρ0
-
-    # # MODEL FUNCTIONS =================
-    # model.initR(data_dummy)
-    # model.H_BC(data_dummy)
-
-    # # METHOD FUNCTIONS ================
-    # method.Force1(data_dummy)
-    # method.RK4(data_dummy)
-    # method.VelVer(data_dummy)
-    # method.run_traj(data_dummy)
-
-    # com_tf = tm.time()
-    # print(f'Compilation time --> {np.round(com_tf - com_ti,2)} s or {np.round((com_tf - com_ti)/60,2)} min')
-
-
+        
     # =================================
     # SIMULATION
     # =================================
@@ -116,11 +91,9 @@ for ωc in ωcs:
 
     # sys.exit("I only want to plot the spectral density right now")
     
-    # trajData.cj = par.calc_cj(ωc)
     for i in range(len(TaskArray)):
         method.run_traj(trajData)
         ρw += trajData.ρw
-        # print(trajData.H_bc," ",trajData.dHij)
     sim_tf = tm.time()
     print(f'Simulation time --> {np.round(sim_tf - sim_ti,2)} s or {np.round((sim_tf - sim_ti)/60,2)} min')
     print(' ================================================================================================= ')

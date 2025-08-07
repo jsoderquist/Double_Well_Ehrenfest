@@ -5,6 +5,7 @@ import time as tm
 import parameters as par
 from scipy.optimize import curve_fit
 import pickle
+import os.path
 
 # define a function to fit to for the rates
 # P_data is [integral of PL, integral of PR]
@@ -35,14 +36,11 @@ if loadDataFlag:
         ρ = np.zeros((Nst, par.nDW), dtype=np.complex128)
         test = np.zeros((Nst,2), dtype=np.complex128)
         for k in range(cpus):
-            # print(ωc/par.cmtoau)
             print(f'./data/rho_{k}_{ωc/par.cmtoau}.txt')
             if ωc == 0:
                 ρ += np.loadtxt(f'./data/rho_{k}.txt') # pull from the data outside the cavity
             else:
-                # print(k)
                 ρ += np.loadtxt(f'./data/rho_{k}_{ωc/par.cmtoau}.txt')
-            # print(np.isfinite(ρ))
         ρ /= cpus # averages over all trajectories
 
         # calculate reaction rate at each timestep - really we just need one timestep t = 7ps
@@ -65,21 +63,25 @@ if loadDataFlag:
 
 # pull rate data from Sebastian's paper (https://pubs.acs.org/doi/10.1021/jacs.5c03182)
 k_5 = np.loadtxt('./data/k_wc_scan_etac_0.005.txt')
+k_25 = np.loadtxt('./data/k_wc_scan_etac_0.0025.txt')
 
 # pull data from previous runs
-if ~loadDataFlag:
-    with open('data/RelativeRates_Rabi114.txt','rb') as f:
-        ωcs114,krel114 = pickle.load(f)
+with open('data/RelativeRates_Rabi114.txt','rb') as f:
+    ωcs114,krel114 = pickle.load(f)
+with open('data/RelativeRates_Rabi57.txt','rb') as f:
+    ωcs57,krel57 = pickle.load(f)
 
 
 # plot the rate constant k/k0
 fig, ax = plt.subplots(figsize = (4.5,4.5))
-ax.plot(k_5[:,0],k_5[:,1]/9.077e-08, c = color[3], linestyle = ' ', marker = 'o', fillstyle= 'full', markersize = '6')
-ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
+ax.plot(ωcs57[1:]/par.cmtoau, krel57, lw = 3, color = color[1], label = r'$\Omega_R = 57$', alpha = 0.8)
+ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[2], label = r'$\Omega_R = 114$', alpha = 0.8)
 if loadDataFlag:
     ax.plot(ωcs[1:]/par.cmtoau, k_vals/k0, lw = 3, color = color[1], label = rf'$\Omega_R = {par.Ω}$', alpha = 0.8)
-else:
-    ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
+# else:
+#     ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
+ax.plot(k_25[:,0],k_25[:,1]/9.077e-08, c = color[1], linestyle = ' ', marker = 'o', fillstyle= 'full', markersize = '6', label = 'HEOM 57')
+ax.plot(k_5[:,0],k_5[:,1]/9.077e-08, c = color[2], linestyle = ' ', marker = 'o', fillstyle= 'full', markersize = '6', label = 'HEOM 114')
 ax.set_xlabel('ωc (1/cm)', fontsize = 20)
 ax.set_ylabel('k/k0', fontsize = 20)
 ax.legend()
@@ -88,5 +90,13 @@ plt.close()
 
 # save data to not need to load it next time
 if loadDataFlag:
-    with open(f'data/RelativeRates_Rabi{par.Ω}.txt','wb') as f:
-        pickle.dump([ωcs,k_vals/k0],f)
+    if os.path.isfile(f'data/RelativeRates_Rabi{par.Ω}.txt'): # try not to overwrite important data that took a whole day to get
+        overwriteFlag = input(f'Do you really want to overwrite the file data/RelativeRates_Rabi{par.Ω}.txt? (y/n) ')
+        if overwriteFlag == 'y':
+            with open(f'data/RelativeRates_Rabi{par.Ω}.txt','wb') as f:
+                pickle.dump([ωcs,k_vals/k0],f)
+        else:
+            print("The file wasn't overwritten")
+    else:
+        with open(f'data/RelativeRates_Rabi{par.Ω}.txt','wb') as f:
+            pickle.dump([ωcs,k_vals/k0],f)
