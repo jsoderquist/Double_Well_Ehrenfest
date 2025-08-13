@@ -61,3 +61,8 @@ Initialize the simulation and allows the parallelization.
 The code is parallelized through the multipar.py file. The results presented in the "images" folder reproduce the ones presented in Fig. S6a and Fig S6b of:
 
  Hu. D., et al. (J. Phys. Chem. Lett. 2023, 14 (49), 11208–11216. https://doi.org/10.1021/acs.jpclett.3c02985.)
+
+ ### How to Change Parameters
+ dynamics.py: change $\omega_c$ values to change data points to use (note: also update plotting_rho.py with the same values of $\omega_c$ but also include an $\omega_c$ of 0)
+ parameters.py: multiply value in $eta_c$ by 0 to simulate outside the cavity. Ntraj, cpus, tf, and dtN may also be changed.
+ multipar.py: change NARRAY to str(N-1) where N is the number of jobs desired
