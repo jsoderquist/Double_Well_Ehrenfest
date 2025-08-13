@@ -25,10 +25,7 @@ def Force2(data):
 # THIS DOES HALF OF THE ELETRONIC STEPS, par.Estep/2 | Estep MUST BE EVEN!!!
 @nb.jit(nopython=True, fastmath=True)
 def RK4(data):
-    H  = par.Hel_cons(data) * 1.0 + data.H_bc * 1.0
-    # if ~np.isfinite(H).all():
-    #         raise Exception(f"H is not finite. Hel: {par.Hel_cons(data)} H_bc: {data.H_bc} rho: {data.ρt}")
-    # print("Hbc: ",data.H_bc) # H is blowing up, Helcons really is constant
+    H  = data.H_el * 1.0 + data.H_bc * 1.0
     ρ  = data.ρt * 1.0
     dt = par.dtE * 1.0
     for k in range(int(par.Estep/2)):
@@ -42,33 +39,32 @@ def RK4(data):
 # VON - NEWMAN EQUATION
 @nb.jit(nopython=True, fastmath=True)
 def von_Newman(ρf, H):
+    # print(H," ",ρf)
     return -1j * (H @ ρf - ρf @ H)
 
 #  VELOCITY VERLET PROPAGATOR
 @nb.jit(nopython=True, fastmath=True)
-def VelVer(data) : 
-    data.v[:] = data.P[:]/par.M * 1.0                                           # VELOCITY 
-    # if ~np.isfinite(data.v).all():
-    #         raise Exception(f"velocity is not finite. v: {data.v} F2: {data.F2} rho: {data.ρt}")
-    # print("P: ",data.P)          
+def VelVer(data,st) :
+    # print(np.sum(np.diag(data.ρt))) 
+    data.v[:] = data.P[:]/par.M * 1.0                                           # VELOCITY         
     RK4(data)                                                                   # ELECTRONIC UPDATE | RK4 DOES HALF OF THE ELECTRONIC PROPAGATION!!!!
-    # if ~np.isfinite(data.ρt).all():
-    #         raise Exception(f"Rho is not finite after Rk41. dHij: {data.dHij} F2: {data.F2} rho: {data.ρt}")
+    # if np.round(np.real_if_close(np.sum(np.diag(data.ρt))),9) != 1:
+    #         sys.exit(f'rho is {data.ρt} at st={st}, population: {np.sum(np.diag(data.ρt))} RK4_1')
+    # print("Largest x change: ",np.max(abs(data.v[:] * par.dtN + 0.5 * data.F1[:] * par.dtN**2 / par.M))," st: ",st) 
+    # print("v portion of update: ",np.max(abs(data.v[:] * par.dtN)))
+    # print("F1 portion of update: ",np.max(abs(0.5 * data.F1[:] * par.dtN**2 / par.M)))
     data.x[:] += data.v[:] * par.dtN + 0.5 * data.F1[:] * par.dtN**2 / par.M    # POSITION UPDATE
-    # print("v: ",data.v) # blows up
-    # print("F1: ",data.F1) # blows up
-    model.H_BC(data)                                                            # ELECTRONIC HAMILTONIAN UPDATE | BATH POSITION DEPEDENT PART (CHECK model.py FILE) 
+    model.H_BC(data)                                                            # ELECTRONIC HAMILTONIAN UPDATE | BATH POSITION DEPEDENT PART (CHECK model.py FILE)
+    # print("HBC: ",data.H_bc," st: ",st) 
+    # print(np.sum(np.diag(data.ρt)))
     RK4(data)                                                                   # ELECTRONIC UPDATE | RK4 DOES HALF OF THE ELECTRONIC PROPAGATION!!!!
-    # if ~np.isfinite(data.ρt).all():
-    #         raise Exception(f"Rho is not finite after Rk42. dHij: {data.dHij} F2: {data.F2} rho: {data.ρt}")
+    # if np.round(np.real_if_close(np.sum(np.diag(data.ρt))),9) != 1:
+    #         sys.exit(f'rho is {data.ρt} at st={st}, population: {np.sum(np.diag(data.ρt))} RK4_2')
     Force2(data)                                                                # FORCE AT t2
-    # if ~np.isfinite(data.F2).all():
-    #         raise Exception(f"Force 2 is not finite. dHij: {data.dHij} F2: {data.F2} rho: {data.ρt}")
+    # print("Force2: ",np.max(abs(data.F2)))
     data.v[:] += 0.5 * (data.F1[:] + data.F2[:]) * par.dtN / par.M              # VELOCITY UPDATE
     data.P[:]  = data.v[:] * par.M * 1.0                                        # MOMENTUM UPDATE
     data.F1[:] = data.F2[:] * 1.0                                               # SET F1 AS F2 FOR THE NEXT STEP
-    # if ~np.isfinite(data.ρt).all():
-    #         raise Exception(f"Rho is not finite in a weird place. dHij: {data.dHij} F2: {data.F2} rho: {data.ρt}")
     # ======================================================
 
 # RUN TRAJECTORIES
@@ -88,11 +84,16 @@ def run_traj(data):
     for st in range(data.nSteps):
         if (st % par.nskip == 0):               # WRITTING OF THE DENSITY MATRIX | SAVE ONLY THE DIAGONAL ELEMENTS
             ρ = data.ρt
+            temp = np.diag(ρ) # get only the diagonal to pull out slices of population easier
+            # print('total pop: ', np.sum(temp))
             for k in range(par.nDW):
-                data.ρw[iskip,k] = np.real(ρ[k,k])
+                # print("len(temp): ",len(temp))
+                # print("indices pulled: ",data.nsolvent*k," ",data.nsolvent*(k+1))
+                data.ρw[iskip,k] = np.real(np.sum(temp[data.nsolvent*data.nSlevels*k:data.nsolvent*data.nSlevels*(k+1)]))
+            # print("pop I pulled: ", np.sum(data.ρw[iskip,:]))
             iskip += 1
 
-        VelVer(data)                            # EVOLUTION OF THE SYSTEM FOR nsteps
+        VelVer(data,st)                            # EVOLUTION OF THE SYSTEM FOR nsteps
 
         # if ~np.isfinite(data.ρt).all():
         #     raise Exception(f"Rho is not finite. dHij: {data.dHij} ωj: {data.ωj} H_bc: {data.H_bc} Hel_cons: {par.Hel_cons(data)} dt: {par.dtE} F2: {data.F2} F1: {data.F1} v: {data.v} x: {data.x} rho: {data.ρt}")

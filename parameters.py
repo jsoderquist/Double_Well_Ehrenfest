@@ -15,6 +15,20 @@ import matplotlib.pyplot as plt
 
 # FUNCTIONS
 # ==================================
+
+# attempt to create a kronecker product that will jit
+# @nb.jit(nopython=True, fastmath=True)
+# def kron2D(a,b):
+#     dim = a.shape[0] # assumes matrices are square and the same shape and doubles
+#     c = np.zeros((dim**2,dim**2), dtype = np.float64)
+
+#     for ii in range(dim):
+#         for jj in range(dim):
+#             for kk in range(dim):
+#                 c[dim*ii+kk,dim*jj:dim*(jj+1)] = a[ii,jj]*b[kk,:]
+#     return c
+    
+
 # DOUBLE WELL R IN ENERGY BASIS
 @nb.jit(nopython=True, fastmath=True)
 def Rx(nDW):
@@ -38,7 +52,6 @@ def Qx(nSlevels):
 # DOUBLE WELL POTENTIAL ENERGY
 @nb.jit(nopython=True, fastmath=True)
 def DW(x,m,wDW):
-    # m = 1836 # I don't know why this is being redefined here. It's already given to the function as 1, but it's not used anyway
     Eb = 2250 * cmtoau
     V = -(m*wDW**2 / 2) * x**2 + (m**2*wDW**4 / (16 * Eb)) * x**4
     return V - min(V)
@@ -153,41 +166,61 @@ def EffBathParam(τc, ηc, ωc, N, λQ, γQ, ωQ, Λ):
         costfunc = np.abs(Fω-(((float(i)-0.5)/float(N))*λs)) # see eq. 2.6
         m = np.argmin((costfunc))
         ωj[i] = ω[m]
-    mj = MQ # let all molecules have equal mass
+    mj = MS # let all molecules have equal mass
     cj[:] = ωj[:] * np.sqrt(mj) * ((λs/(2*float(N)))**0.5) # see paragraph under eq 2.6 and earlier paragraph that says cj = κ*sqrt(m_j)*ω_j
-    # print("CQ: ",cj[0]/cmtoau)
     return cj, ωj
 
-# BOSONIC CREATION OPERATOR
-@nb.jit(nopython=True, fastmath=True)
-def creation(n):
-    a = np.zeros((n,n), dtype = np.complex128)
-    b = np.array([(x+1)**0.5 for x in range(n)], dtype = np.complex128)
-    np.fill_diagonal(a[1:], b)
-    return a
+# # BOSONIC CREATION OPERATOR
+# @nb.jit(nopython=True, fastmath=True)
+# def creation(n):
+#     a = np.zeros((n,n), dtype = np.complex128)
+#     b = np.array([(x+1)**0.5 for x in range(n)], dtype = np.complex128)
+#     np.fill_diagonal(a[1:], b)
+#     return a
 
 # ∂H/∂x_i - POSITION INDEPENDENT PART
 # THIS FUNCTION CAN NOT BE JITTED!!!
 def dHij_cons(cj):
-    dHij         = np.zeros((ndof, nDW, nDW), dtype = np.complex128)
-    dHij[:,:,:] -= np.kron(cj, R).T.reshape(ndof, nDW, nDW)
+    dHij         = np.zeros((ndof, nDW*nSlevels**nsolvent, nDW*nSlevels**nsolvent), dtype = np.complex128)
+    Rcoupling = np.kron(cj[:ndofb], np.kron(R,IQ)).T.reshape(ndofb, nDW*nSlevels**nsolvent, nDW*nSlevels**nsolvent) # parts of force with R
+    Qcoupling = np.kron(cj[ndofb:], np.kron(IR,Q)).T.reshape(ndof-ndofb,nDW*nSlevels**nsolvent, nDW*nSlevels**nsolvent) # parts of force with Q
+    dHij -= np.concatenate((Rcoupling, Qcoupling), axis=0)
     return dHij
 
-# ELECTRONIC HAMILTONIAN - includes V, T, and the reorganization energies
+# ELECTRONIC HAMILTONIAN - includes V and T of both the molecule and solvents as well as the reorganization energies
 # CONTRUCTED IN THE IN THE DIABATIC BASIS WITH 4 VIBRATIONAL STATES |ν_L⟩, |ν_R⟩, |ν'_L⟩, |ν'_R⟩ 
-@nb.jit(nopython=True, fastmath=True)
+# @nb.jit(nopython=True, fastmath=True)
 def Hel_cons(data):
     R2 = R @ R                                          # Rx^2
     Q2 = Q @ Q                                          # Q^2
-    H  = np.zeros((nDW, nDW), dtype = np.complex128)    
-    H += np.diag(diaE)                                  # VIBRATIONAL STATES ENERGY | GROUND STATE ENERGY IS SUBSTRACTED
-    H[0,1] += (EDW[1] - EDW[0])/2                       # |ν_L⟩ - |ν_R⟩ coupling    Δ  = (E[0] - E[1])/2
-    H[1,0] += (EDW[1] - EDW[0])/2                       
-    H[2,3] += (EDW[3] - EDW[2])/2                       # |ν'_L⟩ - |ν'_R⟩ coupling  Δ' = (E[2] - E[3])/2
-    H[3,2] += (EDW[3] - EDW[2])/2                       
-    H      += np.sum(data.cj[:ndofb]**2/data.ωj[:ndofb]**2) * R2/2      # Adds reorganization energy of molecule bath
-    H      += (data.nsolvent*np.sum(data.cj[ndofb:ndofb+ndofs]**2/data.ωj[ndofb:ndofb+ndofs]**2) \
-        + ηc**2*data.ωc) * Q2/2      # Adds reorganization energy of solvent bath and cavity (equation S12) assuming all solvent molecules have equal coupling
+    IR = np.eye(data.nt) # identity matrix of R
+    IQ = np.eye(data.nSlevels) # identity matrix of Q
+
+    # molecule V+T part of Hamiltonian
+    HM  = np.zeros((nDW, nDW), dtype = np.complex128)    
+    HM += np.diag(diaE)                                  # VIBRATIONAL STATES ENERGY | GROUND STATE ENERGY IS SUBSTRACTED
+    HM[0,1] += (EDW[1] - EDW[0])/2                       # |ν_L⟩ - |ν_R⟩ coupling    Δ  = (E[0] - E[1])/2
+    HM[1,0] += (EDW[1] - EDW[0])/2                       
+    HM[2,3] += (EDW[3] - EDW[2])/2                       # |ν'_L⟩ - |ν'_R⟩ coupling  Δ' = (E[2] - E[3])/2
+    HM[3,2] += (EDW[3] - EDW[2])/2
+
+    # Solvent V+T part of Hamiltonian
+    HS  = np.zeros((nSlevels, nSlevels), dtype = np.complex128)   
+    HS += np.diag(ES)                                  # VIBRATIONAL STATES ENERGY | GROUND STATE ENERGY IS SUBSTRACTED
+
+    # Add R-dependent part of H_Q (expand H_Q to see this)
+    HM += np.sum(data.cj[(ndofb+ndofc):]**2/data.ωj[(ndofb+ndofc):]**2) * R2/2
+
+    # add reorganization energies                 
+    HM      += np.sum(data.cj[:ndofb]**2/data.ωj[:ndofb]**2) * R2/2      # Adds reorganization energy of molecule bath
+    HS      += (np.sum(data.cj[(ndofb+ndofc):]**2/data.ωj[(ndofb+ndofc):]**2) \
+        + ηc**2*data.ωc) * Q2/2      # Adds reorganization energy of solvent bath and cavity (equation S12)
+
+    # Connect R and Q portions into one hamiltonian - done last to do less tensor products
+    H = np.kron(HM,IQ) + np.kron(IR,HS)
+    # this next part is currently only one molecule - adds final term of H_Q
+    H -= np.sum(data.cj[(ndofb+ndofc):(ndofb+ndofc+ndofs)])*np.kron(IR,Q)@np.kron(R,IQ)
+
     return H 
 
 '''
@@ -202,19 +235,15 @@ def calc_cjωj(ωc):
 
     cj, ωj = BathParam(λD, γD, ndofb, num)                      # BATH COUPLINGS AND FREQUENCIES
     cs, ωs = BathParam(λQ, γQ, ndofs, num)                      # Solvent BATH COUPLINGS AND FREQUENCIES
-    
+    ck, ωk = EffBathParam(τc, ηc, ωc, ndofc, λQ, γQ, ωQ, Λ)                       # cavity BATH COUPLINGS AND FREQUENCIES
+
     # combine bath parameters into one variable
+    # order: molecule bath, cavity bath, solvent
+    cj = np.hstack((cj,ck))
+    ωj = np.hstack((ωj,ωk))
     cj = np.hstack((cj,cs))
     ωj = np.hstack((ωj,ωs))
 
-    ck, ωk = EffBathParam(τc, ηc, ωc, ndofc, λQ, γQ, ωQ, Λ)                       # cavity BATH COUPLINGS AND FREQUENCIES
-
-    # this is the wrong check for Λ because the H_LM doesn't have the division by 2. Λ should be ηc**2*ωc as in equation S12
-    # print("check Λ: ", np.sum(ck[:]**2/(2*ωQ**2))/cmtoau, " ",Λ/cmtoau)
-
-    # combine bath parameters into one variable
-    cj = np.hstack((cj,ck))
-    ωj = np.hstack((ωj,ωk))
     return cj, ωj
 
 # PHYSICAL CONSTANTS
@@ -225,75 +254,17 @@ autoK  = 3.1577464e+05
 temp   = 300 / autoK
 β      = 1 / temp 
 
-# SYSTEM PARAMETERS ==================================
+# BATH PARAMETERS ==============================
 M = 1.0                                                   # R0 MASS
-MQ = 1.0                                                  # Solvent MASS
-nDW = 4                                                   # NUMBER OF VIBRATIONAL STATES IN DW - note that if I increase this, my diaE and diaV need to be changed too
+MS = 1.0                                                  # Solvent MASS
+nDW = 5                                                   # NUMBER OF VIBRATIONAL STATES IN DW - note that if I increase this, my diaE and diaV need to be changed too
 wDW = 1000 * cmtoau                                       # DW BARRIER FREQUENCY
 nSlevels = 2                                              # Number of levels represented in the solvent harmonic oscillator
-N = 1024                                                  # NUMBER OF POINTS THAT DISCRETIZE R0 FOR DVR
-L = 100.0                                                 # UPPER AND LOWER R0 LIMIT [-L, L]
-x0 = np.linspace(-L,L,N)                                  # R0
-dx = x0[0] - x0[1]                                        # dx
-xS0 = np.linspace(-L,L,N)                                 # Q0
-dSx = x0[0] - x0[1]                                       # dx for solvent
-EDW, VDW = DVR(x0,M,wDW)                                  # EIGENENERGIES AND EIGENSTATES FOR THE DW (Nuclear kinetic energy plus the V potential)
-Normx = np.trapz(VDW[:,0].conjugate() * VDW[:,0],x0,dx)    
-VDW = VDW/(Normx)**0.5                                    # NORMALIZE THE EIGENSTATES
-VDW = -1.0 * np.array(VDW, dtype = np.complex128)         # EIGENSTATES ARE IN THE OPPOSITE DIRECTION
-ES, VS = DVRS(x0,MQ,wDW)                                  # EIGENENERGIES AND EIGENSTATES FOR THE DW (Nuclear kinetic energy plus the V potential)
-Normx = np.trapz(VS[:,0].conjugate() * VS[:,0],x0,dx)    
-VS = VS/(Normx)**0.5                                      # NORMALIZE THE EIGENSTATES
-VS = np.array(VS, dtype = np.complex128)                  # make it complex
-
-# DIABATIZATION OF  VIBRATIONAL STATES
-# EIGENSTATES
-diaV = np.zeros((len(VDW[:,0]), 4), dtype = np.complex128)
-# |ν_L⟩ = (|0⟩ + |1⟩)/√2             |ν_R⟩ = (|0⟩ - |1⟩)/√2   
-diaV[:,0], diaV[:,1] = (VDW[:,0] + VDW[:,1])/2**0.5, (VDW[:,0] - VDW[:,1])/2**0.5
-# |ν'_L⟩ = (|2⟩ + |3⟩)/√2            |ν'_R⟩ = (|2⟩ - |3⟩)/√2   
-diaV[:,2], diaV[:,3] = -(VDW[:,2] + VDW[:,3])/2**0.5, -(VDW[:,2] - VDW[:,3])/2**0.5
-# EIGENENERGIES
-diaE = np.zeros((4), dtype = np.complex128)
-# E[ν_L] = E[ν_R] = (E[0] + E[1])/2 
-diaE[0], diaE[1] = (EDW[0] + EDW[1])/2, (EDW[0] + EDW[1])/2
-# E[ν'_L] = E[ν'_R] = (E[2] + E[3])/2 
-diaE[2], diaE[3] = (EDW[2] + EDW[3])/2, (EDW[2] + EDW[3])/2
-diaE -= diaE[0]                                                 # GROUND STATE ENERGY IS SUBSTRACTED
-# POSITION OPERATOR
-R = Rx(nDW)
-
-# POSITION OPERATOR
-Q = Qx(nSlevels)
-
-# INITIAL STATE ==================================
-# SYSTEM IS INITIALIZED IN THE REACTANT STATE |ν_L⟩
-ρ0 = np.zeros((nDW,nDW), dtype = np.complex128)
-ρ0[0,0] = 1.0 + 0 * 1j
-
-# SIMULATION PARAMETERS ==============================
-parallel = True                                            # DO PARALLELIZATION
-Cpus     = 100                                             # NUMBER THE CPUS USE FOR PARALLELIZATION
-NTraj    = 2000                                           # NUMBER OF TRAJECTORIES
-tf       = 10000 * fstoau                                   # SIMULATION TIME IN FEMTOSECONDS
-dtN      = 6                                               # NUCLEAR TIME STEP
-NSteps   = int(tf/dtN)                                     # NUMBER OF SIMULATION STEPS
-Sim_time = np.array([(x * dtN) for x in range(NSteps)])    # SIMULATION TIMES ARRAY
-Estep    = 30                                              # NUMBER OF ELECTRONIC STEPS PER NUCLEAR TIME STEP ⇒ MUST BE EVEN!!!!
-dtE      = dtN/Estep                                       # ELECTRONIC TIME STEP
-nskip    = 30                                               # FRAME SAVING RATE
-
-if NSteps%nskip == 0:
-    nData = NSteps // nskip + 0
-else :
-    nData = NSteps // nskip + 1
-
-# BATH PARAMETERS ==============================
 nsolvent = 1                                            # number of solvent molecules to simulate
 ndofs = 300                                                # number of frequencies per solvent molecule in discretization
 ndofb   = 300                                              # NUMBER OF BATH OSCILLATORS (low frequencies of molecule?)
 ndofc = 300                                                # number of cavity degrees of freedom (really how many discrete points we take in Jeff)
-ndof = ndofb + ndofc + ndofs
+ndof = ndofb + ndofc + nsolvent*ndofs
 γD     = 200 * cmtoau                                      # BATH CHARACTERISTIC FREQUENCY (value from Sebastian's JACS paper)
 η0 = 0.1
 λD     = η0 * M * wDW * γD/2                                 # BATH REORGANIZATION ENERGY  (equation from Arkajit's paper?) 
@@ -305,5 +276,74 @@ num    = False                                             # DISCRETIZATION OF T
 
 τc = 500*fstoau
 Ω = 114 # Rabi Splitting
-ηc = 0.005*Ω/114.05702851425713 #au - change to 0 for no cavity
+ηc = 0*0.005*Ω/114.05702851425713 #au - change to 0 for no cavity
+
+# SYSTEM PARAMETERS ==================================
+N = 1024                                                  # NUMBER OF POINTS THAT DISCRETIZE R0 FOR DVR
+L = 100.0                                                 # UPPER AND LOWER R0 LIMIT [-L, L]
+x0 = np.linspace(-L,L,N)                                  # R0
+dx = x0[0] - x0[1]                                        # dx
+xS0 = np.linspace(-L,L,N)                                 # Q0
+dSx = x0[0] - x0[1]                                       # dx for solvent
+EDW, VDW = DVR(x0,M,wDW)                                  # EIGENENERGIES AND EIGENSTATES FOR THE DW (Nuclear kinetic energy plus the V potential)
+Normx = np.trapz(VDW[:,0].conjugate() * VDW[:,0],x0,dx)    
+VDW = VDW/(Normx)**0.5                                    # NORMALIZE THE EIGENSTATES
+VDW = -1.0 * np.array(VDW, dtype = np.complex128)         # EIGENSTATES ARE IN THE OPPOSITE DIRECTION
+
+# DIABATIZATION OF  VIBRATIONAL STATES
+# EIGENSTATES
+diaV = np.zeros((len(VDW[:,0]), nDW), dtype = np.complex128)
+# |ν_L⟩ = (|0⟩ + |1⟩)/√2             |ν_R⟩ = (|0⟩ - |1⟩)/√2   
+diaV[:,0], diaV[:,1] = (VDW[:,0] + VDW[:,1])/2**0.5, (VDW[:,0] - VDW[:,1])/2**0.5
+# |ν'_L⟩ = (|2⟩ + |3⟩)/√2            |ν'_R⟩ = (|2⟩ - |3⟩)/√2   
+diaV[:,2], diaV[:,3] = -(VDW[:,2] + VDW[:,3])/2**0.5, -(VDW[:,2] - VDW[:,3])/2**0.5
+# EIGENENERGIES
+diaE = np.zeros((nDW), dtype = np.complex128)
+# E[ν_L] = E[ν_R] = (E[0] + E[1])/2 
+diaE[0], diaE[1] = (EDW[0] + EDW[1])/2, (EDW[0] + EDW[1])/2
+# E[ν'_L] = E[ν'_R] = (E[2] + E[3])/2 
+diaE[2], diaE[3] = (EDW[2] + EDW[3])/2, (EDW[2] + EDW[3])/2
+if nDW > 4:                         # get states above the well if requested
+    diaV[:,5:] = VDW[:,5:nDW]
+    diaE[5:] = EDW[5:nDW]
+diaE -= diaE[0]                                                 # GROUND STATE ENERGY IS SUBSTRACTED
+ES, VS = DVRS(x0,MS,ωQ)                                  # EIGENENERGIES AND EIGENSTATES FOR THE DW (Nuclear kinetic energy plus the V potential)
+Normx = np.trapz(VS[:,0].conjugate() * VS[:,0],x0,dx)    
+VS = VS/(Normx)**0.5                                      # NORMALIZE THE EIGENSTATES
+VS = np.array(VS, dtype = np.complex128)                  # make it complex
+
+# POSITION OPERATORS
+R = Rx(nDW) # MOLECULE
+Q = Qx(nSlevels) # SOLVENT
+
+# Only include the states we requested - note that this has to be done after calculating Q
+ES = ES[:nSlevels]
+VS = VS[:nSlevels]
+
+# INITIAL STATE ==================================
+# SYSTEM IS INITIALIZED IN THE REACTANT STATE |ν_L⟩
+IR = np.eye(nDW) # identity matrix of R
+IQ = np.eye(nSlevels) # identity matrix of Q
+Rextended = np.kron(R,IQ)
+Qextended = np.kron(IR,Q)
+ρ0 = np.zeros((nDW,nDW), dtype = np.complex128)
+ρ0[0,0] = 1.0 + 0 * 1j
+ρ0 = np.kron(ρ0,[[1,0],[0,0]])
+
+# SIMULATION PARAMETERS ==============================
+parallel = True                                            # DO PARALLELIZATION
+Cpus     = 100                                             # NUMBER THE CPUS USE FOR PARALLELIZATION
+NTraj    = 200                                           # NUMBER OF TRAJECTORIES
+tf       = 1000 * fstoau                                   # SIMULATION TIME IN FEMTOSECONDS
+dtN      = 1                                               # NUCLEAR TIME STEP
+NSteps   = int(tf/dtN)                                     # NUMBER OF SIMULATION STEPS
+Sim_time = np.array([(x * dtN) for x in range(NSteps)])    # SIMULATION TIMES ARRAY
+Estep    = 30                                              # NUMBER OF ELECTRONIC STEPS PER NUCLEAR TIME STEP ⇒ MUST BE EVEN!!!!
+dtE      = dtN/Estep                                       # ELECTRONIC TIME STEP
+nskip    = 30                                               # FRAME SAVING RATE
+
+if NSteps%nskip == 0:
+    nData = NSteps // nskip + 0
+else :
+    nData = NSteps // nskip + 1
 

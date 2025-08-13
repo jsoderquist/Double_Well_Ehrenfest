@@ -12,9 +12,9 @@ def rate_fit_func(P_data,kf,kb):
     return kf*P_data[0,:] - kb*P_data[1,:]
 
 indexToPullRate = -1 # usually -1
-loadDataFlag = 0 # flag to decide whether population data needs to be loaded
+loadDataFlag = 1 # flag to decide whether population data needs to be loaded
 
-ωcs = np.insert(np.linspace(700,1700,101),0,0)*par.cmtoau # wavenumber to au (include 0 to get the rate outside the cavity)
+ωcs = np.array([0])#np.array([0,800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.insert(np.linspace(700,1700,101),0,0)*par.cmtoau # wavenumber to au (include 0 to get the rate outside the cavity)
 k_vals = np.zeros([len(ωcs)-1,1]) # rate constants
 k0 = 0 # create a variable for the rate outside the cavity
 
@@ -45,6 +45,30 @@ if loadDataFlag:
             # print(np.isfinite(ρ))
         ρ /= cpus # averages over all trajectories
 
+        # plot populations
+        fig, ax = plt.subplots(figsize = (4.5,4.5))
+        tot = np.sum(ρ, axis = 1)
+        ax.plot(time/par.fstoau/1000, ρ[:,0],  ls = '-', lw = 3, color = color[0],    label = r'$|\nu_L⟩$', alpha = 0.8) 
+        ax.plot(time/par.fstoau/1000, ρ[:,1],  ls = '-', lw = 3, color = color[1],    label = r'$|\nu_R⟩$', alpha = 0.8) 
+        ax.plot(time/par.fstoau/1000,ρ[:,2],  ls = '-', lw = 3, color = color[2],   label = r"$|\nu'_L⟩$", alpha = 0.8) 
+        ax.plot(time/par.fstoau/1000,ρ[:,3],  ls = '-', lw = 3, color = color[3],   label = r"$|\nu'_R⟩$", alpha = 0.8) 
+        if len(ρ[0,:]) > 4:
+            ax.plot(time/par.fstoau/1000,ρ[:,4],  ls = '-', lw = 3, color = color[4],   label = r"$|\nu_4⟩$", alpha = 0.8) 
+        ax.plot(time/par.fstoau/1000,tot,      ls = '--',lw = 2, color = color[-1],  label = r"$Tot. Pop$", alpha = 0.8)
+        ax.axhline(0, ls = '--', lw = 1, color = 'black')
+        ax.axhline(1, ls = '--', lw = 1, color = 'black')
+        ax.set_xlim(time[0]/par.fstoau/1000,time[-1]/par.fstoau/1000)
+        # ax.set_ylim(0,0.00005)
+        ax.xaxis.set_minor_locator(AutoMinorLocator())
+        ax.yaxis.set_minor_locator(AutoMinorLocator())
+        ax.tick_params(which='major', length=12, labelsize = 13, direction = 'in')
+        ax.tick_params(which='minor', length=5, direction = 'in')
+        ax.set_xlabel('Time (ps)', fontsize = 20)
+        ax.set_ylabel('Population', fontsize = 20)
+        ax.legend(title ='Vibrational States', loc=0, frameon = False, fontsize = 9, handlelength=1, title_fontsize = 9, labelspacing = 0.2)
+        plt.savefig(f'images/popwithcav_{ωc/par.cmtoau}.png', dpi = 300, bbox_inches='tight')
+        plt.close()
+
         # calculate reaction rate at each timestep - really we just need one timestep t = 7ps
         PL = ρ[:,0]
         PR = ρ[:,1]
@@ -60,6 +84,7 @@ if loadDataFlag:
         # save rate constant
         if ωc == 0:
             k0 = kf[indexToPullRate]
+            print("k0: ", kf[-10:])
         else:
             k_vals[ii-1] = kf[indexToPullRate]
 
@@ -67,26 +92,28 @@ if loadDataFlag:
 k_5 = np.loadtxt('./data/k_wc_scan_etac_0.005.txt')
 
 # pull data from previous runs
-if ~loadDataFlag:
-    with open('data/RelativeRates_Rabi114.txt','rb') as f:
-        ωcs114,krel114 = pickle.load(f)
+# if ~loadDataFlag:
+#     with open('data/RelativeRates_Rabi114.txt','rb') as f:
+#         ωcs114,krel114 = pickle.load(f)
 
 
 # plot the rate constant k/k0
 fig, ax = plt.subplots(figsize = (4.5,4.5))
-ax.plot(k_5[:,0],k_5[:,1]/9.077e-08, c = color[3], linestyle = ' ', marker = 'o', fillstyle= 'full', markersize = '6')
-ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
+ax.plot(k_5[:,0],k_5[:,1]/9.077e-08, c = color[3], linestyle = ' ', marker = 'o', fillstyle= 'full', markersize = '6',label='HEOM')
+# ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
 if loadDataFlag:
-    ax.plot(ωcs[1:]/par.cmtoau, k_vals/k0, lw = 3, color = color[1], label = rf'$\Omega_R = {par.Ω}$', alpha = 0.8)
+    ax.plot(ωcs[1:]/par.cmtoau, k_vals/k0, lw = 3, color = color[1], label = '$\Omega_R_qs = 114$', alpha = 0.8)
+    print(k_vals/k0)
 else:
-    ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
+    # ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
+    pass
 ax.set_xlabel('ωc (1/cm)', fontsize = 20)
 ax.set_ylabel('k/k0', fontsize = 20)
 ax.legend()
-plt.savefig(f'images/relativeRates.png', dpi = 300, bbox_inches='tight')
+plt.savefig('./images/relativeRates.png', dpi = 300, bbox_inches='tight')
 plt.close()
 
 # save data to not need to load it next time
 if loadDataFlag:
-    with open(f'data/RelativeRates_Rabi{par.Ω}.txt','wb') as f:
+    with open(f'data/RelativeRates_Rabi{par.Ω}_qs.txt','wb') as f:
         pickle.dump([ωcs,k_vals/k0],f)
