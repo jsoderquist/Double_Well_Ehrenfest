@@ -64,5 +64,7 @@ The code is parallelized through the multipar.py file. The results presented in 
 
  ### How to Change Parameters
  dynamics.py: change $\omega_c$ values to change data points to use (note: also update plotting_rho.py with the same values of $\omega_c$ but also include an $\omega_c$ of 0)
+ 
  parameters.py: multiply value in $eta_c$ by 0 to simulate outside the cavity. Ntraj, cpus, tf, and dtN may also be changed.
+ 
  multipar.py: change NARRAY to str(N-1) where N is the number of jobs desired
