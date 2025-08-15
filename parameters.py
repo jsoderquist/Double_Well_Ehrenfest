@@ -213,8 +213,8 @@ def Hel_cons(data):
 
     # add reorganization energies                 
     HM      += np.sum(data.cj[:ndofb]**2/data.ωj[:ndofb]**2) * R2/2      # Adds reorganization energy of molecule bath
-    HS      += (np.sum(data.cj[(ndofb+ndofc):]**2/data.ωj[(ndofb+ndofc):]**2) \
-        + ηc**2*data.ωc) * Q2/2      # Adds reorganization energy of solvent bath and cavity (equation S12)
+    HS      += (np.sum(data.cj[(ndofb+ndofc):]**2/data.ωj[(ndofb+ndofc):]**2)/2 \
+        + ηc**2*data.ωc) * Q2      # Adds reorganization energy of solvent bath and cavity (equation S12)
 
     # Connect R and Q portions into one hamiltonian - done last to do less tensor products
     H = np.kron(HM,IQ) + np.kron(IR,HS)
