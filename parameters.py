@@ -209,7 +209,7 @@ def Hel_cons(data):
     HS += np.diag(ES)                                  # VIBRATIONAL STATES ENERGY | GROUND STATE ENERGY IS SUBSTRACTED
 
     # Add R-dependent part of H_Q (expand H_Q to see this)
-    HM += np.sum(data.cj[(ndofb+ndofc):]**2/data.ωj[(ndofb+ndofc):]**2) * R2/2
+    HM += np.sum(cQ**2/ωQ**2) * R2/2
 
     # add reorganization energies                 
     HM      += np.sum(data.cj[:ndofb]**2/data.ωj[:ndofb]**2) * R2/2      # Adds reorganization energy of molecule bath
@@ -271,6 +271,7 @@ ndof = ndofb + ndofc + nsolvent*ndofs
 γQ     = 6000 * cmtoau                                     # Solvent bath CHARACTERISTIC FREQUENCY   (value from Sebastian's JACS paper) 
 λQ     = 0.147 * cmtoau                                    # solvent BATH REORGANIZATION ENERGY  
 ωQ     = 1189.7 * cmtoau                                   # solvent characteristic frequency
+cQ     = 0.110 * cmtoau                                    # solvent-reactant coupling
 Λ      = 0.0009328299310150123*cmtoau#1.71 *cmtoau                                      # spectator mode reorganization energy
 num    = False                                             # DISCRETIZATION OF THE SPECTRAL DENSITY | True ⇒ Numerical | False ⇒ Analytical
 
