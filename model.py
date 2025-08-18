@@ -19,15 +19,14 @@ import parameters as par
 def H_BC(data):
     # IR = np.eye(data.nt) # identity matrix of R
     # IQ = np.eye(data.nSlevels) # identity matrix of Q
-    Hbc  = np.zeros((data.nt*data.nSlevels**data.nsolvent,data.nt*data.nSlevels**data.nsolvent), dtype = np.complex128)
+    Hbc  = np.zeros((data.hamDim,data.hamDim), dtype = np.complex128)
     # Hbc  = np.zeros((par.nDW,par.nDW), dtype = np.complex128)
 
     # temp = (np.sum(data.cj[:par.ndofb] * data.x[:par.ndofb]) + np.sum(data.cj[-par.ndofc:] * data.x[-par.ndofc:])) * par.R # multiply in R bath couplings and cavity couplings
     # temp = np.kron(ft.reduce(np.kron,[IQ]*par.nsolvent),temp) # extend the space to the space of all solvents after coupling to R
     # H_BC -= temp # subtract out couplings
     Hbc -= np.sum(data.cj[:data.ndofb] * data.x[:data.ndofb]) * par.Rextended#* np.kron(par.R,IQ) # See equation S10b in supporting information of Sebastian's paper - but why is it minus? I think the supplementary material is missing a minus. Expanding the Hamiltonian looks like it needs a minus
-    Hbc -= (np.sum(data.cj[(data.ndofb+data.ndofc):] * data.x[(data.ndofb+data.ndofc):]) \
-            + np.sum(data.cj[data.ndofb:(data.ndofb+data.ndofc)] * data.x[data.ndofb:(data.ndofb+data.ndofc)])) * par.Qextended#* np.kron(IR,par.Q)
+    Hbc -= np.sum(data.cj[data.ndofb:] * data.x[data.ndofb:]) * par.Qextended#* np.kron(IR,par.Q)
 
     data.H_bc = Hbc * 1.0
 

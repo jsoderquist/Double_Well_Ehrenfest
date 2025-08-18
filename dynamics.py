@@ -81,7 +81,7 @@ for ωc in ωcs:
     TaskArray = np.array(TaskArray)                                  # CONTAINS THE NUMBER OF TRAJECTORIES ASSIGNED TO EACH JOB
     # =================================
 
-    trajData = tc.trajData(par.nDW, par.ndof, par.NSteps, par.nData, ωc, par.ndofb, par.ndofc, par.ndofs, par.nsolvent, par.nSlevels) # INITIATE THE TIME DEPENDENT DATA
+    trajData = tc.trajData(par.nDW, par.ndof, par.NSteps, par.nData, ωc, par.ndofb, par.ndofs, par.nsolvent, par.nSlevels, par.nPhLevels, par.hamDim) # INITIATE THE TIME DEPENDENT DATA
     # tempR = par.kron2D(par.R,par.IQ)
     # tempQ = par.kron2D(par.IR,par.Q)
     # print("Got to here")
@@ -95,9 +95,10 @@ for ωc in ωcs:
     sim_ti = tm.time()
 
     # initialize some constants
+    par.prepare_cavity(trajData,ωc)
     trajData.cj, trajData.ωj = par.calc_cjωj(ωc) # calculate these here so that we can automate the system
     trajData.dHij = par.dHij_cons(trajData.cj)
-    trajData.H_el = par.Hel_cons(trajData)              # calculate electronic Hamiltonian
+    trajData.H_el = par.Hel_cons(trajData,ωc)              # calculate electronic Hamiltonian
 
     # plot spectral density
     wvals = np.linspace(700,1700,2000) # omega values in spectral density plot
