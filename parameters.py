@@ -219,7 +219,7 @@ def Hel_cons(data):
     # Connect R and Q portions into one hamiltonian - done last to do less tensor products
     H = np.kron(HM,IQ) + np.kron(IR,HS)
     # this next part is currently only one molecule - adds final term of H_Q
-    H -= np.sum(data.cj[(ndofb+ndofc):(ndofb+ndofc+ndofs)])*np.kron(IR,Q)@np.kron(R,IQ)
+    H -= cQ*np.kron(IR,Q)@np.kron(R,IQ)
 
     return H 
 
