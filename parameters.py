@@ -191,10 +191,10 @@ def Hel_cons(data,ωc):
     # Connect R and Q portions into one hamiltonian - done last to do less tensor products
     H = np.kron(np.kron(HM,Ic),IQ) + np.kron(np.kron(IR,Ic),HS)
     # this next part is currently only one molecule - adds final term of H_Q
-    H -= np.sum(data.cj[ndofb:(ndofb+ndofs)])*Qextended@Rextended
+    H -= cQ*Qextended@Rextended
 
     # include solvent-cavity coupling term
-    H += ωc**2*np.sqrt(2/ωc)*ηc*data.qcextended@Qextended
+    H += ωc**2*np.sqrt(2/ωc)*ηc*np.kron(np.kron(IR,data.qc),IQ)@Qextended
 
     return H 
 
@@ -259,19 +259,20 @@ ndof = ndofb + nsolvent*ndofs
 γQ     = 6000 * cmtoau                                     # Solvent bath CHARACTERISTIC FREQUENCY   (value from Sebastian's JACS paper) 
 λQ     = 0.147 * cmtoau                                    # solvent BATH REORGANIZATION ENERGY  
 ωQ     = 1189.7 * cmtoau                                   # solvent characteristic frequency
-cQ     = 0.110 * cmtoau                                    # solvent-reactant coupling (should be different for every solvent molecule, but it's all the same in Sebastian's model)
+cQ     = 0.110 * cmtoau                                  # solvent-reactant coupling (should be different for every solvent molecule, but it's all the same in Sebastian's model)
 Λ      = 0.0009328299310150123*cmtoau#1.71 *cmtoau                                      # spectator mode reorganization energy
 num    = False                                             # DISCRETIZATION OF THE SPECTRAL DENSITY | True ⇒ Numerical | False ⇒ Analytical
 
 τc = 500*fstoau
 Ω = 114 # Rabi Splitting
-ηc = 0.005*Ω/114.05702851425713 #au - change to 0 for no cavity
+ηc = 0*0.005*Ω/114.05702851425713 #au - change to 0 for no cavity
 
 # SYSTEM PARAMETERS ==================================
 N = 1024                                                  # NUMBER OF POINTS THAT DISCRETIZE R0 FOR DVR
 L = 100.0                                                 # UPPER AND LOWER R0 LIMIT [-L, L]
 x0 = np.linspace(-L,L,N)                                  # R0
 dx = abs(x0[0] - x0[1])                                   # dx
+# L = 10
 xS0 = np.linspace(-L,L,N)                                 # Q0
 dSx = abs(xS0[0] - xS0[1])                                # dx for solvent
 xc0 = np.linspace(-L,L,N)                                 # Q0
@@ -310,7 +311,7 @@ Q = Qx(nSlevels,VS,xS0,dSx) # SOLVENT
 
 # Only include the states we requested - note that this has to be done after calculating Q
 ES = ES[:nSlevels]
-VS = VS[:nSlevels]
+VS = VS[:,:nSlevels]
 
 # INITIAL STATE ==================================
 # SYSTEM IS INITIALIZED IN THE REACTANT STATE |ν_L⟩
@@ -330,14 +331,14 @@ Qextended = np.kron(np.kron(IR,Ic),Q)
 # SIMULATION PARAMETERS ==============================
 parallel = True                                            # DO PARALLELIZATION
 Cpus     = 100                                             # NUMBER THE CPUS USE FOR PARALLELIZATION
-NTraj    = 2                                           # NUMBER OF TRAJECTORIES
-tf       = 20 * fstoau                                   # SIMULATION TIME IN FEMTOSECONDS
+NTraj    = 2000                                           # NUMBER OF TRAJECTORIES
+tf       = 10000 * fstoau                                   # SIMULATION TIME IN FEMTOSECONDS
 dtN      = 1                                               # NUCLEAR TIME STEP
 NSteps   = int(tf/dtN)                                     # NUMBER OF SIMULATION STEPS
 Sim_time = np.array([(x * dtN) for x in range(NSteps)])    # SIMULATION TIMES ARRAY
 Estep    = 30                                              # NUMBER OF ELECTRONIC STEPS PER NUCLEAR TIME STEP ⇒ MUST BE EVEN!!!!
 dtE      = dtN/Estep                                       # ELECTRONIC TIME STEP
-nskip    = 30                                               # FRAME SAVING RATE
+nskip    = 70                                               # FRAME SAVING RATE
 
 if NSteps%nskip == 0:
     nData = NSteps // nskip + 0

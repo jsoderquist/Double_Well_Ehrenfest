@@ -20,7 +20,7 @@ import sys
 from scipy.signal import argrelmax
 # =================================
 
-ωcs = np.array([1189.7])*par.cmtoau#np.array([800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.insert(np.linspace(700,1700,101),0,1189.7)*par.cmtoau#np.array([1189.7])*par.cmtoau # wavenumber to au
+ωcs = np.array([1190])*par.cmtoau#np.array([800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.insert(np.linspace(700,1700,101),0,1189.7)*par.cmtoau#np.array([1189.7])*par.cmtoau # wavenumber to au
 for ωc in ωcs:
     # print("It's outputting something")
     # =========================
@@ -79,18 +79,12 @@ for ωc in ωcs:
         if i == nrank: 
             TaskArray.append((NTasks*size)+i)
     TaskArray = np.array(TaskArray)                                  # CONTAINS THE NUMBER OF TRAJECTORIES ASSIGNED TO EACH JOB
-    # =================================
 
+    # =================================
     trajData = tc.trajData(par.nDW, par.ndof, par.NSteps, par.nData, ωc, par.ndofb, par.ndofs, par.nsolvent, par.nSlevels, par.nPhLevels, par.hamDim) # INITIATE THE TIME DEPENDENT DATA
-    # tempR = par.kron2D(par.R,par.IQ)
-    # tempQ = par.kron2D(par.IR,par.Q)
-    # print("Got to here")
-    # trajData.Rextended = tempR # trying to allow TrajClass to be jitted while saving a kronecker product
-    # trajData.Qextended = tempQ
-    # print("Saved kronecker product")
-    # print("Q: ",par.Q)
-    # print("Qextended: ",tempQ)
-    ρw = np.zeros((par.nData, par.nDW))                              # DENSITY MATRIX AVERAGED OVER THE NUMBER OF TRAJECTORIES ASSIGNED TO THIS JOB
+
+    # ρw = np.zeros((par.nData, par.nDW))                              # DENSITY MATRIX AVERAGED OVER THE NUMBER OF TRAJECTORIES ASSIGNED TO THIS JOB
+    ρw = np.zeros((par.nData, par.hamDim))
 
     sim_ti = tm.time()
 
@@ -101,28 +95,28 @@ for ωc in ωcs:
     trajData.H_el = par.Hel_cons(trajData,ωc)              # calculate electronic Hamiltonian
 
     # plot spectral density
-    wvals = np.linspace(700,1700,2000) # omega values in spectral density plot
-    J = par.J_eff(1/par.τc, par.ηc, ωc, wvals*par.cmtoau)
-    # J = par.J_DrudeL(par.λD, par.γD, np.linspace(600,1600,2000)*par.cmtoau)
-    # for n in range(par.ndof):
-    #     plt.axvline(trajData.ωj[n]/par.cmtoau, ls = '-.', color = 'black', lw = 1)
-    plt.plot(wvals,J, lw = 3, label=ωc)#, c = 'r')
-    if par.ηc == 0: # no cavity case
-        try:
-            plt.savefig('../images/spectralDen.png')
-        except:
-            plt.savefig('./images/spectralDen.png')
-    else:
-        try:
-            plt.savefig('../images/spectralDenInCav.png')
-        except:
-            plt.savefig('./images/spectralDenInCav.png')
+    # wvals = np.linspace(700,1700,2000) # omega values in spectral density plot
+    # J = par.J_DrudeL(1/par.τc, par.ηc, ωc, wvals*par.cmtoau)
+    # # J = par.J_DrudeL(par.λD, par.γD, np.linspace(600,1600,2000)*par.cmtoau)
+    # # for n in range(par.ndof):
+    # #     plt.axvline(trajData.ωj[n]/par.cmtoau, ls = '-.', color = 'black', lw = 1)
+    # plt.plot(wvals,J, lw = 3, label=ωc)#, c = 'r')
+    # if par.ηc == 0: # no cavity case
+    #     try:
+    #         plt.savefig('../images/spectralDen.png')
+    #     except:
+    #         plt.savefig('./images/spectralDen.png')
+    # else:
+    #     try:
+    #         plt.savefig('../images/spectralDenInCav.png')
+    #     except:
+    #         plt.savefig('./images/spectralDenInCav.png')
 
-    extrema = wvals[argrelmax(J)]
-    if len(extrema) > 1:
-        checkΩ = extrema[1] - extrema[0]
-        print("Ω: ", checkΩ, " μQ: ",checkΩ/2/np.sqrt(par.nsolvent)/par.ηc/(ωc/par.cmtoau))
-        print(extrema)
+    # extrema = wvals[argrelmax(J)]
+    # if len(extrema) > 1:
+    #     checkΩ = extrema[1] - extrema[0]
+    #     print("Ω: ", checkΩ, " μQ: ",checkΩ/2/np.sqrt(par.nsolvent)/par.ηc/(ωc/par.cmtoau))
+    #     print(extrema)
 
     # sys.exit("I only want to plot the spectral density right now")
     

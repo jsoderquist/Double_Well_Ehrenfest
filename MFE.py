@@ -84,13 +84,15 @@ def run_traj(data):
     for st in range(data.nSteps):
         if (st % par.nskip == 0):               # WRITTING OF THE DENSITY MATRIX | SAVE ONLY THE DIAGONAL ELEMENTS
             ρ = data.ρt
-            temp = np.diag(ρ) # get only the diagonal to pull out slices of population easier
-            # print('total pop: ', np.sum(temp))
-            for k in range(par.nDW):
-                # print("len(temp): ",len(temp))
-                # print("indices pulled: ",data.nsolvent*k," ",data.nsolvent*(k+1))
-                data.ρw[iskip,k] = np.real(np.sum(temp[data.nsolvent*data.nSlevels*k:data.nsolvent*data.nSlevels*(k+1)]))
-            # print("pop I pulled: ", np.sum(data.ρw[iskip,:]))
+            
+            # pull out all populations so we can look at the population of the solvent and cavity if needed
+            data.ρw[iskip,:] = np.real(np.diag(ρ))
+
+            # this would pull only the population of the reactant
+            # temp = np.diag(ρ) # get only the diagonal to pull out slices of population easier
+            # for k in range(par.nDW):
+            #     data.ρw[iskip,k] = np.real(np.sum(temp[data.nsolvent*data.nSlevels*data.nPhLevels*k:data.nsolvent*data.nSlevels*data.nPhLevels*(k+1)]))
+            
             iskip += 1
 
         VelVer(data,st)                            # EVOLUTION OF THE SYSTEM FOR nsteps

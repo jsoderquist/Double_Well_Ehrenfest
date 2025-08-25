@@ -28,7 +28,7 @@ spec = [
     ('ρw',            float64[:,:]), # PLACE HOLDER FOR THE DENSITY MATRIX
     # ('Rextended',             float64[:,:]), # Position coordinate of the molecule in extended basis
     # ('Qextended',             float64[:,:]), # Position coordinate of the solvent in extended basis
-    ('qc',             float64[:,:]), # Position coordinate of the cavity
+    ('qc',             complex128[:,:]), # Position coordinate of the cavity
     ('Ec',                     float64[:]), # cavity energies
     ('test',          complex128[:,:]), # PLACE HOLDER FOR THE DENSITY MATRIX
     ('cj',            complex128[:]), # place holder for the coupling coefficients
@@ -58,10 +58,11 @@ class trajData(object):
         self.ρt     = np.zeros((hamDim,hamDim), dtype = np.complex128)
         self.H_bc   = np.zeros((hamDim,hamDim), dtype = np.complex128)
         self.H_el   = np.zeros((hamDim,hamDim), dtype = np.complex128)
-        self.ρw     = np.zeros((nData,self.nt))
+        self.ρw     = np.zeros((nData,self.hamDim), dtype = np.float64)
+        # self.ρw     = np.zeros((nData,self.nt)) # would be if we only wanted the reactant population
         # self.Rextended = np.zeros((self.nt*self.nSlevels,self.nt*self.nSlevels), dtype = np.float64)
         # self.Qextended = np.zeros((self.nt*self.nSlevels,self.nt*self.nSlevels), dtype = np.float64)
-        self.qc   = np.zeros((par.nPhLevels,par.nPhLevels), dtype = np.float64)
+        self.qc   = np.zeros((par.nPhLevels,par.nPhLevels), dtype = np.complex128)
         self.Ec     = np.zeros(par.nPhLevels, dtype = np.float64)
         self.test   = np.zeros((nData,2) , dtype = np.complex128)
         self.cj     = np.zeros(self.ndof, dtype = np.complex128)
