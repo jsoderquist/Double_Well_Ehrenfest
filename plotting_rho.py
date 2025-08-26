@@ -14,7 +14,7 @@ def rate_fit_func(P_data,kf,kb):
 indexToPullRate = -1 # usually -1
 loadDataFlag = 1 # flag to decide whether population data needs to be loaded
 
-ωcs = np.array([0])#np.array([0,800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.insert(np.linspace(700,1700,101),0,0)*par.cmtoau # wavenumber to au (include 0 to get the rate outside the cavity)
+ωcs = np.array([0,800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.insert(np.linspace(700,1700,101),0,0)*par.cmtoau # wavenumber to au (include 0 to get the rate outside the cavity)
 k_vals = np.zeros([len(ωcs)-1,1]) # rate constants
 k0 = 0 # create a variable for the rate outside the cavity
 
@@ -102,7 +102,7 @@ fig, ax = plt.subplots(figsize = (4.5,4.5))
 ax.plot(k_5[:,0],k_5[:,1]/9.077e-08, c = color[3], linestyle = ' ', marker = 'o', fillstyle= 'full', markersize = '6',label='HEOM')
 # ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
 if loadDataFlag:
-    ax.plot(ωcs[1:]/par.cmtoau, k_vals/k0, lw = 3, color = color[1], label = '$\Omega_R_qs = 114$', alpha = 0.8)
+    ax.plot(ωcs[1:]/par.cmtoau, k_vals/k0, lw = 3, color = color[1], label = '$\Omega_Rqs = 114$', alpha = 0.8)
     print(k_vals/k0)
 else:
     # ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)

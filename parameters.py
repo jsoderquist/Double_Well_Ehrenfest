@@ -334,8 +334,8 @@ Qextended = np.kron(IR,Q)
 # SIMULATION PARAMETERS ==============================
 parallel = True                                            # DO PARALLELIZATION
 Cpus     = 100                                             # NUMBER THE CPUS USE FOR PARALLELIZATION
-NTraj    = 200                                           # NUMBER OF TRAJECTORIES
-tf       = 1000 * fstoau                                   # SIMULATION TIME IN FEMTOSECONDS
+NTraj    = 500                                           # NUMBER OF TRAJECTORIES
+tf       = 10000 * fstoau                                   # SIMULATION TIME IN FEMTOSECONDS
 dtN      = 1                                               # NUCLEAR TIME STEP
 NSteps   = int(tf/dtN)                                     # NUMBER OF SIMULATION STEPS
 Sim_time = np.array([(x * dtN) for x in range(NSteps)])    # SIMULATION TIMES ARRAY
