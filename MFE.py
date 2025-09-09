@@ -36,7 +36,7 @@ def RK4(data):
         ρ  = ρ.copy() + dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
     data.ρt = 1.0 * ρ
 
-# VON - NEWMAN EQUATION
+# VON - NEWMAN EQUATION - this is what makes this code slow. We're updating a density matrix instead of a wavefunction
 @nb.jit(nopython=True, fastmath=True)
 def von_Newman(ρf, H):
     # print(H," ",ρf)

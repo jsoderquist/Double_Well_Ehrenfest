@@ -11,12 +11,14 @@ import pickle
 def rate_fit_func(P_data,kf,kb):
     return kf*P_data[0,:] - kb*P_data[1,:]
 
-indexToPullRate = 4725#-1 # usually -1
+indexToPullRate = -1 # usually -1
 loadDataFlag = 1 # flag to decide whether population data needs to be loaded
 
-ωcs = np.array([0,800,1150,1190,1600])*par.cmtoau#np.array([0,800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.insert(np.linspace(700,1700,101),0,0)*par.cmtoau # wavenumber to au (include 0 to get the rate outside the cavity)
+ωcs = np.array([0,800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.array([0,800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.insert(np.linspace(700,1700,101),0,0)*par.cmtoau # wavenumber to au (include 0 to get the rate outside the cavity)
 k_vals = np.zeros([len(ωcs)-1,1]) # rate constants
 k0 = 0 # create a variable for the rate outside the cavity
+k_vals2 = np.zeros([len(ωcs)-1,1]) # rate constants for Hasyim's version of rate
+k02 = 0
 
 # ===================================
 color = ['#3498db', '#e74c3c' ,'#1abc9c', '#9b59b6', '#e67e22', '#34495e']
@@ -50,6 +52,7 @@ if loadDataFlag:
         for k in range(par.nDW):
             ρR[:,k] = np.sum(ρ[:,par.nsolvent*par.nSlevels*par.nPhLevels*k:par.nsolvent*par.nSlevels*par.nPhLevels*(k+1)],axis=1)
 
+        print("Final Populations: ",ρR[-1,:])
         # plot populations
         fig, ax = plt.subplots(figsize = (4.5,4.5))
         tot = np.sum(ρR, axis = 1)
@@ -85,13 +88,25 @@ if loadDataFlag:
             params, covariances = curve_fit(rate_fit_func, P_data[:,:(tp+2)], PR[:(tp+2)]) # fit to the rate equation
             kf[tp] = params[0]
             kb[tp] = params[1]
+
+        # calculate rate constant using Hasyim's method
+        # dPRdt = (PR[1:] - PR[:-1])/dt
+        # kf2 = dPRdt/(1 - PR[1:]/PR[-1])
+        dPRdt = (PR[2:] - PR[:-2])/2/dt
+        kf2 = dPRdt/(1 - PR[1:-1]/PR[-1])
         
         # save rate constant
         if ωc == 0:
             k0 = kf[indexToPullRate]
-            print("k0: ", kf[-10:])
+            k02 = kf2[indexToPullRate]
+            print("k0: ", k0)
+            print("k0 with Hasyim's method: ", k02)
+            print("average k0: ", np.sum(kf2[:-1])/len(kf2[:-1]))
+            print("average in the last portion: ", np.sum(kf2[-101:-1])/100)
         else:
             k_vals[ii-1] = kf[indexToPullRate]
+            k_vals2[ii-1] = kf2[indexToPullRate]
+            print("rates with Hasyim's method: ", kf2/k02)
 
         # plot population of solvent
         ρQ = np.zeros((par.nData,par.nSlevels))
@@ -162,13 +177,14 @@ fig, ax = plt.subplots(figsize = (4.5,4.5))
 # ax.plot(k_5[:,0],k_5[:,1]/9.077e-08, c = color[3], linestyle = ' ', marker = 'o', fillstyle= 'full', markersize = '6',label='HEOM')
 # ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
 if loadDataFlag:
-    ax.plot(ωcs[1:]/par.cmtoau, k_vals/k0, lw = 3, color = color[1], label = '$\Omega_R_qs = 114$', alpha = 0.8)
+    ax.plot(ωcs[1:]/par.cmtoau, k_vals/k0, lw = 3, color = color[1], label = '$\Omega_R = 114$', alpha = 0.8)
     print(k_vals/k0)
 else:
     # ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
     pass
 ax.set_xlabel('ωc (1/cm)', fontsize = 20)
 ax.set_ylabel('k/k0', fontsize = 20)
+ax.set_title("Quantum Solvent and Cavity - No Cavity Loss")
 ax.legend()
 try:
     plt.savefig('./images/relativeRates.png', dpi = 300, bbox_inches='tight')
@@ -180,3 +196,29 @@ plt.close()
 if loadDataFlag:
     with open(f'data/RelativeRates_Rabi{par.Ω}_qsc.txt','wb') as f:
         pickle.dump([ωcs,k_vals/k0],f)
+
+
+# plot the rate constant k/k0 with Hasyim's method of extracting rate
+fig, ax = plt.subplots(figsize = (4.5,4.5))
+# ax.plot(k_5[:,0],k_5[:,1]/9.077e-08, c = color[3], linestyle = ' ', marker = 'o', fillstyle= 'full', markersize = '6',label='HEOM')
+# ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
+if loadDataFlag:
+    ax.plot(ωcs[1:]/par.cmtoau, k_vals2/k02, lw = 3, color = color[1], label = '$\Omega_R = 114$', alpha = 0.8)
+    print("Rates using Hasyim's method: ",k_vals2/k02)
+else:
+    # ax.plot(ωcs114[1:]/par.cmtoau, krel114, lw = 3, color = color[3], label = r'$\Omega_R = 114$', alpha = 0.8)
+    pass
+ax.set_xlabel('ωc (1/cm)', fontsize = 20)
+ax.set_ylabel('k/k0', fontsize = 20)
+ax.set_title("Quantum Solvent and Cavity - No Cavity Loss")
+ax.legend()
+try:
+    plt.savefig('./images/relativeRates2.png', dpi = 300, bbox_inches='tight')
+except:
+    plt.savefig('images/relativeRates2.png', dpi = 300, bbox_inches='tight')
+plt.close()
+
+# save data to not need to load it next time
+if loadDataFlag:
+    with open(f'data/RelativeRates2_Rabi{par.Ω}_qsc.txt','wb') as f:
+        pickle.dump([ωcs,k_vals2/k02],f)

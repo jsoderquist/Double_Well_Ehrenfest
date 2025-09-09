@@ -20,7 +20,7 @@ import sys
 from scipy.signal import argrelmax
 # =================================
 
-ωcs = np.array([1190])*par.cmtoau#np.array([800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.insert(np.linspace(700,1700,101),0,1189.7)*par.cmtoau#np.array([1189.7])*par.cmtoau # wavenumber to au
+ωcs = np.array([1189.7])*par.cmtoau#np.array([800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.array([800,1000,1130,1150,1170,1180,1190,1200,1210,1230,1250,1400,1600])*par.cmtoau#np.insert(np.linspace(700,1700,101),0,1189.7)*par.cmtoau#np.array([1189.7])*par.cmtoau # wavenumber to au
 for ωc in ωcs:
     # print("It's outputting something")
     # =========================

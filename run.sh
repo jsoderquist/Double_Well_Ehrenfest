@@ -3,7 +3,7 @@
 #SBATCH --output=qbath.out
 #SBATCH --error=qbath.err
 #SBATCH --mem-per-cpu=4GB
-#SBATCH -t 15:00:00
+#SBATCH -t 48:00:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 
